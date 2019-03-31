@@ -19,6 +19,7 @@ MAX_DIFFICULTY = 10
 BASE_RATE = 300
 MAX_RATE = 30
 IMG_SIZE = 48
+LASER_SPEED = 10
 
 def lerp(x, y, a):
   return x * (1 - a) + y * a
@@ -75,7 +76,7 @@ def putstr(string, sx, sy):
       sx += 8
 
 def format_btc_balance(n):
-  txt = "B{:1.4f}".format(abs(n))
+  txt = "₿{:1.4f}".format(abs(n))
   if n < 0:
     txt = "-" + txt
   else:
@@ -121,7 +122,11 @@ class Ship:
     self.laser_cooldown = 20
     laser = Image('laser.png')
     laser.size(10, 30)
-    laser.position = self.position
+    laser.position = (self.position[0]+12, self.position[1]-48)
+    self.lasers.append(laser)
+    laser = Image('laser.png')
+    laser.size(10, 30)
+    laser.position = (self.position[0]-24, self.position[1]-48)
     self.lasers.append(laser)
 
   def update(self, dt):
@@ -133,7 +138,7 @@ class Ship:
         self.laser_cooldown -= 1
 
     for laser in self.lasers:
-      laser.move(0, -10)
+      laser.move(0, -LASER_SPEED)
 
       if game.current_level.check_laser_intersection(laser.position) or laser.position[1] >= game.height:
         self.lasers.pop(self.lasers.index(laser))
@@ -193,15 +198,7 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
-<<<<<<< HEAD
-    txt = "₿{:1.4f}".format(abs(self.reward))
-    if self.reward < 0:
-      txt = "-" + txt
-    else:
-      txt = "+" + txt
-=======
     txt = format_btc_balance(self.reward)
->>>>>>> 065792cd2f70ba28dbfd2b596164ea0dd9743671
     putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h / 2) - (text_height(txt) / 2))
 
 class Level:
@@ -266,7 +263,6 @@ class Level:
     coin = Coin(img_file.split('_')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(3, 6)*0.1)
     self.coins.append(coin)
     
-
   def spawn_coins(self):
     per_row = (1, 2)
     if self.difficulty < 3:
@@ -403,11 +399,7 @@ class Game:
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
-<<<<<<< HEAD
-    putstr("₿ 0.000", self.width - 80, 10)
-=======
     putstr(format_btc_balance(self.btc_balance), self.width - 80, 10)
->>>>>>> 065792cd2f70ba28dbfd2b596164ea0dd9743671
 
     pygame.display.flip()
 
