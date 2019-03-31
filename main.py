@@ -14,6 +14,10 @@ IDLE = 0
 ALIVE = 1
 DEAD = 2
 
+MAX_DIFFICULTY = 10
+BASE_RATE = 300
+MAX_RATE = 30
+
 class Image:
   def __init__(self, filename):
     self.position = (0, 0)
@@ -78,6 +82,11 @@ class Coin:
     self.img = img
     self.speed = speed
 
+    if self.is_fork:
+      self.rect = pygame.Surface((75, 75))
+      self.rect.fill((250, 0, 0))
+
+  @property
   def is_fork(self):
     return self.ticker in ['BSV', 'BCH', 'BTCP', 'BTG', 'BTD']
 
@@ -90,6 +99,11 @@ class Coin:
     # and BTC coins will make you lose 0.33 bitcoins when you shoot them! you start with 1 bitcoin, so you lose 0.33 three times, game over.
 
   def render(self, screen):
+    if self.is_fork:
+      r = 42
+      glow_pos = (int(self.position[0] + 32), int(self.position[1] + 32))
+      pygame.draw.circle(screen, (255, 0, 0, 100), glow_pos, r)
+      #screen.blit(self.rect, )
     screen.blit(self.img.img, self.position, self.img.rect)
 
 class Level:
@@ -98,6 +112,7 @@ class Level:
     self.screen_size = screen_size
     self.on_lose_life = on_lose_life
     self.coins = []
+    self.spawn_coin_counter = self.coin_spawn_rate
     self.spawn_coins()
 
   @property
@@ -109,23 +124,72 @@ class Level:
   def coin_speed_multiplier(self):
     return 1 + ((self.difficulty - 1) * 0.033)
 
+  @property
+  def coin_spawn_rate(self):
+    if self.difficulty == 1:
+      return 300
+    elif self.difficulty <= 3:
+      return 200
+    elif self.difficulty <= 5:
+      return 150
+    elif self.difficulty <= 7:
+      return 125
+    elif self.difficulty == 8:
+      return 100
+    elif self.difficulty == 9:
+      return 85
+    elif self.difficulty == 10:
+      return 65
+
+    #a = self.difficulty / MAX_DIFFICULTY
+    #return BASE_RATE * (1 - a) + MAX_RATE * a
+
   def advance(self):
     return Level(self.difficulty + 1)
 
+  def spawn_coin(self):
+    idx = random.randrange(0, len(coin_logos))
+    img_file = coin_logos[idx]
+    match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
+
+    if match is not None:
+      img = Image("./coins/" + img_file)
+      img.set_size(64, 64)
+
+      x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
+      y_pos = 0 - img.rect.h
+
+      coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
+      self.coins.append(coin)
+    
+
   def spawn_coins(self):
+    per_row = (1, 2)
+    if self.difficulty < 3:
+      per_row = (2, 3)
+    else:
+      per_row = (3, 4)
+
     x_counter = 0
     y_counter = 0
+
     for img_file in coin_logos:
-      print(img_file)
-      #if random.randrange(0, 2) != 1:
-      #  continue
+      if random.randrange(0, 2) != 1:
+        continue
+      if self.difficulty < 4:
+        if y_counter > 2:
+          break
+      elif self.difficulty < 6:
+        if y_counter > 3:
+          break
+      elif self.difficulty < 8:
+        if y_counter > 4:
+          break
 
       img = Image("./coins/" + img_file)
       img.set_size(64, 64)
 
       x_pos = 0
-
-      per_row = (3, 4)
 
       if y_counter % 2 == 0:
         if x_counter != 0 and x_counter % per_row[0] == 0:
@@ -147,19 +211,25 @@ class Level:
       match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
 
       if match is not None:
-        coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1) # TODO speed
+        coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
         self.coins.append(coin)
 
         x_counter = x_counter + 1
 
   def update(self, dt):
     w, h = pygame.display.get_surface().get_size()
+
+    self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
+
+    if self.spawn_coin_counter <= 0.0:
+      self.spawn_coin()
+      self.spawn_coin_counter = self.coin_spawn_rate
     
     for coin in self.coins:
       coin.update(dt)
       # check out of bounds
       if coin.position[1] > h:
-        if coin.is_fork():
+        if coin.is_fork:
           # lose 1 life.
           self.on_lose_life() # TODO: explanation.
 
@@ -180,7 +250,7 @@ class Game:
     self.width = w
     self.height = h
 
-    self.current_level = Level(1, (w, h), self.on_lose_life)
+    self.current_level = Level(10, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
     self.state = IDLE
 
