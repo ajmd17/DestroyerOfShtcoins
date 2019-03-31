@@ -11,8 +11,6 @@ from math import sin
 pygame.init()
 coin_logos = os.listdir('./coins')
 
-print("fut")
-
 IDLE = 0
 ALIVE = 1
 DEAD = 2
@@ -20,6 +18,44 @@ DEAD = 2
 MAX_DIFFICULTY = 10
 BASE_RATE = 300
 MAX_RATE = 30
+IMG_SIZE = 32
+
+def lerp(x, y, a):
+  return x * (1 - a) + y * a
+
+chset = pygame.image.load('./assetz/chset_8_12.png')
+chrect = chset.get_rect(width=8, height=12)
+
+def putchar(ch, x, y):
+    chrect = chset.get_rect()
+    if (ch >= 'K' and ch <= 'T'):
+        chrect.topleft = ((ord(ch)-ord('K'))*8, 12)
+    elif (ch >= 'U' and ch <= 'Z'):
+        chrect.topleft = ((ord(ch)-ord('U'))*8, 24)
+    else:
+        chrect.topleft = ((ord(ch)-ord('A'))*8, 0)
+    
+    if (ch == '!'):
+        chrect.topleft = (6*8, 24)
+    elif (ch == '?'):
+        chrect.topleft = (7*8, 24)
+    elif (ch == '-'):
+        chrect.topleft = (8*8, 24)
+    elif (ch == ' '):
+        chrect.topleft = (9*8, 24)
+
+    if (ch >= '0' and ch <= '9'):
+        chrect.topleft = ((ord(ch)-ord('0'))*8, 36)
+    
+    chrect.width = 8
+    chrect.height = 12
+
+    game.screen.blit(chset, (x, y), chrect)
+
+def putstr(string, sx, sy):
+    for ch in string.upper():
+        putchar(ch, sx, sy)
+        sx += 8
 
 class Image:
   def __init__(self, filename):
@@ -29,6 +65,7 @@ class Image:
     
   def size(self, w, h):
     self.img = pygame.transform.scale(self.img, (w, h))
+    self.rect = self.img.get_rect()
     #self.rect = self.img.get_rect(width=w, height=h)
     
   def move(self, x, y):
@@ -43,13 +80,14 @@ class Image:
 class Ship:
   def __init__(self, x, y):
     self.position = (x, y)
+    self.next_position = (x, y)
     self.img = Image('ship.png')
     self.tick = 0.0
     self.lasers = []
-    self.laser_cooldown = 0;
+    self.laser_cooldown = 0
 
   def move(self, x, y):
-    self.position = (self.position[0] + x, self.position[1] + y)
+    self.next_position = (self.next_position[0] + x, self.next_position[1] + y)
 
   def shoot(self):
     if self.laser_cooldown != 0:
@@ -62,14 +100,15 @@ class Ship:
 
   def update(self, dt):
     self.tick = self.tick + dt * 0.001
+    self.position = (min(game.width - self.img.rect.w/2, max(self.img.rect.w/2, lerp(self.position[0], self.next_position[0], min(1.0, self.tick*0.003)))), self.position[1])
+    self.next_position = (self.next_position[0], self.next_position[1] + (sin(self.tick*6)*0.2))
     self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
     if (self.laser_cooldown != 0):
         self.laser_cooldown -= 1
 
     for laser in self.lasers:
       laser.move(0, -10)
-      print(self.laser_cooldown)
-      if laser.position[1] < 0:
+      if laser.position[1] >= game.height:
         self.lasers.pop(self.lasers.index(laser))
         
   def render(self, screen):
@@ -86,8 +125,9 @@ class Coin:
     self.speed = speed
 
     if self.is_fork:
+      self.alpha_counter_update_speed = random.randrange(3, 10) * 0.1
       self.alpha_counter = 0.0
-      self.rect = pygame.Surface((84, 84))
+      self.rect = pygame.Surface((IMG_SIZE + 16, IMG_SIZE + 16))
       self.rect.fill((255, 255, 255))
       self.rect.set_colorkey((255, 255, 255))
       self.rect.set_alpha(35)
@@ -98,15 +138,15 @@ class Coin:
 
   def update(self, dt):
     if self.is_fork:
-      self.alpha_counter = self.alpha_counter + (dt * 0.005)
-      self.rect.set_alpha(max(60, 200 *  sin(self.alpha_counter) * 0.5 + 0.5))
+      self.alpha_counter = self.alpha_counter + (dt * 0.0085 * self.alpha_counter_update_speed)
+      self.rect.set_alpha(max(80, 255 *  sin(self.alpha_counter) * 0.5 + 0.5))
     self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1)
 
   def render(self, screen):
     if self.is_fork:
-      r = 42
+      r = int(self.rect.get_width() / 2)
       glow_pos = (int(self.position[0] - ((self.rect.get_width() - self.img.rect.w) / 2)), int(self.position[1] - ((self.rect.get_height() - self.img.rect.h) / 2)))
-      pygame.draw.circle(self.rect, (255, 0, 0, 100), (r, r), r)
+      pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
 
@@ -131,9 +171,9 @@ class Level:
   @property
   def coin_spawn_rate(self):
     if self.difficulty == 1:
-      return 300
-    elif self.difficulty <= 3:
       return 200
+    elif self.difficulty <= 3:
+      return 175
     elif self.difficulty <= 5:
       return 150
     elif self.difficulty <= 7:
@@ -154,17 +194,15 @@ class Level:
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
     img_file = coin_logos[idx]
-    match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
 
-    if match is not None:
-      img = Image("./coins/" + img_file)
-      img.size(64, 64)
+    img = Image("./coins/" + img_file)
+    img.size(IMG_SIZE, IMG_SIZE)
 
-      x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
-      y_pos = 0 - img.rect.h
+    x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
+    y_pos = 0 - img.rect.h
 
-      coin = Coin(match.group().upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
-      self.coins.append(coin)
+    coin = Coin(img_file.split('_')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(3, 6)*0.1)
+    self.coins.append(coin)
     
 
   def spawn_coins(self):
@@ -191,7 +229,7 @@ class Level:
           break
 
       img = Image("./coins/" + img_file)
-      img.size(64, 64)
+      img.size(IMG_SIZE, IMG_SIZE)
 
       x_pos = 0
 
@@ -212,14 +250,10 @@ class Level:
         x_pos = (x_counter * section_w) + (section_w/2)
       y_pos = y_counter * 64
 
-      match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
-      print(match.group())
+      coin = Coin(img_file.split('_')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(3, 6)*0.1)
+      self.coins.append(coin)
 
-      if match is not None:
-        coin = Coin(match.group().upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
-        self.coins.append(coin)
-
-        x_counter = x_counter + 1
+      x_counter = x_counter + 1
 
   def update(self, dt):
     w, h = pygame.display.get_surface().get_size()
@@ -285,26 +319,29 @@ class Game:
 
     if key_move_left and not key_move_right:
       if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
-        self.ship.move(-1 * (dt * 0.1), 0)
+        self.ship.move(-1 * (dt * 0.35), 0)
     elif key_move_right and not key_move_left:
       if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
-        self.ship.move(dt * 0.1, 0)
-    elif key_shoot:
-      game.ship.shoot()
+        self.ship.move(dt * 0.35, 0)
     else:
       pass
+
+    if key_shoot:
+      game.ship.shoot()
 
   def update(self, dt):
     self.ship.update(dt)
     self.current_level.update(dt)
   
   def render(self):
-    self.screen.fill((255, 255, 255))
+    self.screen.fill((0, 0, 0))
     self.current_level.render(self.screen)
     self.ship.render(self.screen)
 
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
+
+    putstr("BTC 0.000", self.width - 80, 10)
 
     pygame.display.flip()
 
