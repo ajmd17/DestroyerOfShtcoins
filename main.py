@@ -34,24 +34,35 @@ def text_height(text):
 
 def putchar(ch, x, y):
     chrect = chset.get_rect()
+
     if (ch >= 'K' and ch <= 'T'):
-        chrect.topleft = ((ord(ch)-ord('K'))*8, 12)
+      chrect.topleft = ((ord(ch)-ord('K'))*8, 12)
     elif (ch >= 'U' and ch <= 'Z'):
-        chrect.topleft = ((ord(ch)-ord('U'))*8, 24)
+      chrect.topleft = ((ord(ch)-ord('U'))*8, 24)
     else:
-        chrect.topleft = ((ord(ch)-ord('A'))*8, 0)
+      chrect.topleft = ((ord(ch)-ord('A'))*8, 0)
     
     if (ch == '!'):
-        chrect.topleft = (6*8, 24)
+      chrect.topleft = (6*8, 24)
     elif (ch == '?'):
-        chrect.topleft = (7*8, 24)
+      chrect.topleft = (7*8, 24)
     elif (ch == '-'):
-        chrect.topleft = (8*8, 24)
+      chrect.topleft = (8*8, 24)
     elif (ch == ' '):
-        chrect.topleft = (9*8, 24)
+      chrect.topleft = (9*8, 24)
+    elif (ch == '₿'):
+      chrect.topleft = (0*8, 48)
+    elif (ch == '.'):
+      chrect.topleft = (1*8, 48)
+    elif (ch == ','):
+      chrect.topleft = (2*8, 48)
+    elif (ch == '/'):
+      chrect.topleft = (3*8, 48)
+    elif (ch == '+'):
+      chrect.topleft = (4*8, 48)
 
     if (ch >= '0' and ch <= '9'):
-        chrect.topleft = ((ord(ch)-ord('0'))*8, 36)
+      chrect.topleft = ((ord(ch)-ord('0'))*8, 36)
     
     chrect.width = 8
     chrect.height = 12
@@ -60,8 +71,8 @@ def putchar(ch, x, y):
 
 def putstr(string, sx, sy):
     for ch in string.upper():
-        putchar(ch, sx, sy)
-        sx += 8
+      putchar(ch, sx, sy)
+      sx += 8
 
 class Image:
   def __init__(self, filename):
@@ -172,7 +183,7 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
-    txt = "B{:1.4f}".format(abs(self.reward))
+    txt = "₿{:1.4f}".format(abs(self.reward))
     if self.reward < 0:
       txt = "-" + txt
     else:
@@ -370,7 +381,7 @@ class Game:
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
-    putstr("BTC 0.000", self.width - 80, 10)
+    putstr("₿ 0.000", self.width - 80, 10)
 
     pygame.display.flip()
 
