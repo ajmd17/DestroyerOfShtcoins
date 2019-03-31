@@ -18,13 +18,19 @@ DEAD = 2
 MAX_DIFFICULTY = 10
 BASE_RATE = 300
 MAX_RATE = 30
-IMG_SIZE = 32
+IMG_SIZE = 48
 
 def lerp(x, y, a):
   return x * (1 - a) + y * a
 
 chset = pygame.image.load('./assetz/chset_8_12.png')
 chrect = chset.get_rect(width=8, height=12)
+
+def text_width(text):
+  return 8 * len(text)
+
+def text_height(text):
+  return 12 * len(text.split("\n"))
 
 def putchar(ch, x, y):
     chrect = chset.get_rect()
@@ -124,13 +130,30 @@ class Coin:
     self.img = img
     self.speed = speed
 
+    self.reward = random.randrange(360, 900) * 0.0001
+
+    if self.is_bitconnect:
+      self.reward = random.randrange(855, 2500) * 0.0001
+
+    if self.is_btc:
+      self.reward = -0.33
+
     if self.is_fork:
+      self.reward = random.randrange(65, 300) * 0.0001
       self.alpha_counter_update_speed = random.randrange(3, 10) * 0.1
       self.alpha_counter = 0.0
       self.rect = pygame.Surface((IMG_SIZE + 16, IMG_SIZE + 16))
       self.rect.fill((255, 255, 255))
       self.rect.set_colorkey((255, 255, 255))
       self.rect.set_alpha(35)
+
+  @property
+  def is_btc(self):
+    return self.ticker == 'BTC'
+  
+  @property
+  def is_bitconnect(self):
+    return self.ticker == 'BCC'
 
   @property
   def is_fork(self):
@@ -149,6 +172,12 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
+    txt = "B{:1.4f}".format(abs(self.reward))
+    if self.reward < 0:
+      txt = "-" + txt
+    else:
+      txt = "+" + txt
+    putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h / 2) - (text_height(txt) / 2))
 
 class Level:
   def __init__(self, difficulty, screen_size, on_lose_life):
