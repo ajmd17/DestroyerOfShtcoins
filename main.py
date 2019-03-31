@@ -4,6 +4,8 @@ from pygame.locals import *
 import os
 import re
 
+from math import sin
+
 pygame.init()
 coin_logos = os.listdir('./coins')
 
@@ -33,12 +35,17 @@ class Ship:
   def __init__(self, x, y):
     self.position = (x, y)
     self.img = Image('ship.png')
+    self.tick = 0.0
 
   def move(self, x, y):
     self.position = (self.position[0] + x, self.position[1] + y)
 
   def shoot(self):
     pass
+
+  def update(self, dt):
+    self.tick = self.tick + dt * 0.001
+    self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
 
   def render(self, screen):
     screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), self.position[1] - self.img.rect.h), self.img.rect)
@@ -101,12 +108,12 @@ class Game:
     self.height = h
 
     self.current_level = Level(1)
-    self.ship = Ship((w / 2), h)
+    self.ship = Ship((w / 2), h - 15)
     self.state = IDLE
 
     self.running = True
 
-  def check_events(self):
+  def check_events(self, dt):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             self.running = False
@@ -118,12 +125,15 @@ class Game:
 
     if key_move_left and not key_move_right:
       if (self.ship.position[0] - (self.ship.img.rect.w/2)) > 0:
-        self.ship.move(-1, 0)
+        self.ship.move(-1 * (dt * 0.1), 0)
     elif key_move_right and not key_move_left:
       if (self.ship.position[0] + (self.ship.img.rect.w/2)) < self.width:
-        self.ship.move(1, 0)
+        self.ship.move(dt * 0.1, 0)
     else:
       pass
+
+  def update(self, dt):
+    self.ship.update(dt)
 
   
   def render(self):
@@ -134,7 +144,9 @@ class Game:
 
 
 game = Game()
-
+clock = pygame.time.Clock()
 while game.running:
-  game.check_events()
+  dt = clock.tick(60)
+  game.check_events(dt)
+  game.update(dt)
   game.render()
