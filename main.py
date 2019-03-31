@@ -93,9 +93,10 @@ class Coin:
     screen.blit(self.img.img, self.position, self.img.rect)
 
 class Level:
-  def __init__(self, difficulty, screen_size):
+  def __init__(self, difficulty, screen_size, on_lose_life):
     self.difficulty = difficulty
     self.screen_size = screen_size
+    self.on_lose_life = on_lose_life
     self.coins = []
     self.spawn_coins()
 
@@ -115,8 +116,9 @@ class Level:
     x_counter = 0
     y_counter = 0
     for img_file in coin_logos:
-      if random.randrange(0, 2) != 1:
-        continue
+      print(img_file)
+      #if random.randrange(0, 2) != 1:
+      #  continue
 
       img = Image("./coins/" + img_file)
       img.set_size(64, 64)
@@ -142,10 +144,13 @@ class Level:
         x_pos = (x_counter * section_w) + (section_w/2)
       y_pos = y_counter * 64
 
-      coin = Coin(re.search(img_file, "^([A-Za-z]*)_logo\.png$").toupper, img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1) # TODO speed
-      self.coins.append(coin)
+      match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
 
-      x_counter = x_counter + 1
+      if match is not None:
+        coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1) # TODO speed
+        self.coins.append(coin)
+
+        x_counter = x_counter + 1
 
   def update(self, dt):
     w, h = pygame.display.get_surface().get_size()
@@ -156,7 +161,7 @@ class Level:
       if coin.position[1] > h:
         if coin.is_fork():
           # lose 1 life.
-          pass
+          self.on_lose_life() # TODO: explanation.
 
         self.coins.remove(coin)
 
@@ -175,7 +180,7 @@ class Game:
     self.width = w
     self.height = h
 
-    self.current_level = Level(1, (w, h))
+    self.current_level = Level(1, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
     self.state = IDLE
 
@@ -184,6 +189,13 @@ class Game:
     self.life_icon = Image('./lightning.png')
 
     self.running = True
+
+  def on_lose_life(self): #todo explanation argument
+    self.num_lives = self.num_lives - 1
+
+    if self.num_lives == 0:
+      # TODO game over
+      self.num_lives = 3
 
   def check_events(self, dt):
     for event in pygame.event.get():
@@ -216,7 +228,8 @@ class Game:
     self.current_level.render(self.screen)
     self.ship.render(self.screen)
 
-    self.screen.blit(self.life_icon.img, (50, self.height - 50), self.life_icon.img.rect)
+    for i in range(0, self.num_lives):
+      self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
     pygame.display.flip()
 
