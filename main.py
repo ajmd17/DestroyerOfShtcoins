@@ -3,12 +3,15 @@ from pygame.locals import *
 
 import os
 import re
+import sys
 import random
 
 from math import sin
 
 pygame.init()
 coin_logos = os.listdir('./coins')
+
+print("fut")
 
 IDLE = 0
 ALIVE = 1
@@ -24,8 +27,9 @@ class Image:
     self.img = pygame.image.load(filename)
     self.rect = self.img.get_rect()
     
-  def set_size(self, width, height):
-    self.rect = self.img.get_rect(width=width, height=height)
+  def size(self, w, h):
+    self.img = pygame.transform.scale(self.img, (w, h))
+    #self.rect = self.img.get_rect(width=w, height=h)
     
   def move(self, x, y):
     self.position = (self.position[0] + x, self.position[1] + y)
@@ -52,6 +56,7 @@ class Ship:
       return
     self.laser_cooldown = 20
     laser = Image('laser.png')
+    laser.size(10, 30)
     laser.position = self.position
     self.lasers.append(laser)
 
@@ -65,10 +70,8 @@ class Ship:
       laser.move(0, -10)
       print(self.laser_cooldown)
       if laser.position[1] < 0:
-        print("whop")
         self.lasers.pop(self.lasers.index(laser))
         
-
   def render(self, screen):
     for laser in self.lasers:
       laser.draw()
@@ -155,12 +158,12 @@ class Level:
 
     if match is not None:
       img = Image("./coins/" + img_file)
-      img.set_size(64, 64)
+      img.size(64, 64)
 
       x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
       y_pos = 0 - img.rect.h
 
-      coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
+      coin = Coin(match.group().upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
       self.coins.append(coin)
     
 
@@ -188,7 +191,7 @@ class Level:
           break
 
       img = Image("./coins/" + img_file)
-      img.set_size(64, 64)
+      img.size(64, 64)
 
       x_pos = 0
 
@@ -210,9 +213,10 @@ class Level:
       y_pos = y_counter * 64
 
       match = re.search(r"^([A-Za-z]*)_logo\.png$", img_file)
+      print(match.group())
 
       if match is not None:
-        coin = Coin(match[1].upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
+        coin = Coin(match.group().upper(), img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1)
         self.coins.append(coin)
 
         x_counter = x_counter + 1
@@ -280,10 +284,10 @@ class Game:
     key_shoot = keystate[K_SPACE]
 
     if key_move_left and not key_move_right:
-      if (self.ship.position[0] - (self.ship.img.rect.w/2)) > 0:
+      if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
         self.ship.move(-1 * (dt * 0.1), 0)
     elif key_move_right and not key_move_left:
-      if (self.ship.position[0] + (self.ship.img.rect.w/2)) < self.width:
+      if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
         self.ship.move(dt * 0.1, 0)
     elif key_shoot:
       game.ship.shoot()
