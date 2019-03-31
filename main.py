@@ -63,6 +63,15 @@ def putstr(string, sx, sy):
         putchar(ch, sx, sy)
         sx += 8
 
+def format_btc_balance(n):
+  txt = "B{:1.4f}".format(abs(n))
+  if n < 0:
+    txt = "-" + txt
+  else:
+    txt = "+" + txt
+
+  return txt
+
 class Image:
   def __init__(self, filename):
     self.position = (0, 0)
@@ -114,7 +123,8 @@ class Ship:
 
     for laser in self.lasers:
       laser.move(0, -10)
-      if laser.position[1] >= game.height:
+
+      if game.current_level.check_laser_intersection(laser.position) or laser.position[1] >= game.height:
         self.lasers.pop(self.lasers.index(laser))
         
   def render(self, screen):
@@ -172,11 +182,7 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
-    txt = "B{:1.4f}".format(abs(self.reward))
-    if self.reward < 0:
-      txt = "-" + txt
-    else:
-      txt = "+" + txt
+    txt = format_btc_balance(self.reward)
     putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h / 2) - (text_height(txt) / 2))
 
 class Level:
@@ -219,6 +225,14 @@ class Level:
 
   def advance(self):
     return Level(self.difficulty + 1)
+
+  def check_laser_intersection(self, laser_pos):
+    for coin in self.coins:
+      if (laser_pos[1] <= coin.position[1] + coin.img.rect.h) and (laser_pos[0] <= coin.position[0] + (coin.img.rect.w)) and (laser_pos[0] >= coin.position[0]):
+        self.coins.remove(coin)
+        return True
+
+    return False
 
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
@@ -313,7 +327,6 @@ class Game:
     screen_info = pygame.display.Info()
     self.screen = pygame.display.set_mode((800, 600))
     w, h = pygame.display.get_surface().get_size()
-    #pygame.display.toggle_fullscreen()
 
     self.width = w
     self.height = h
@@ -323,6 +336,7 @@ class Game:
     self.state = IDLE
 
     self.num_lives = 3
+    self.btc_balance = 0.0
 
     self.life_icon = Image('./lightning.png')
 
@@ -370,7 +384,7 @@ class Game:
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
-    putstr("BTC 0.000", self.width - 80, 10)
+    putstr(format_btc_balance(self.btc_balance), self.width - 80, 10)
 
     pygame.display.flip()
 
