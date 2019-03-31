@@ -98,6 +98,7 @@ class Ship:
     self.next_position = (x, y)
     self.img = Image('ship.png')
     self.tick = 0.0
+    self.mining_laser_power = 0.03
     self.lasers = []
     self.laser_cooldown = 0
 
@@ -149,7 +150,7 @@ class Coin:
       self.reward = -0.33
 
     if self.is_fork:
-      self.reward = random.randrange(65, 300) * 0.0001
+      #self.reward = random.randrange(65, 300) * 0.0001
       self.alpha_counter_update_speed = random.randrange(3, 10) * 0.1
       self.alpha_counter = 0.0
       self.rect = pygame.Surface((IMG_SIZE + 16, IMG_SIZE + 16))
@@ -206,30 +207,48 @@ class Level:
   @property
   def coin_spawn_rate(self):
     if self.difficulty == 1:
-      return 200
-    elif self.difficulty <= 3:
-      return 175
-    elif self.difficulty <= 5:
       return 150
-    elif self.difficulty <= 7:
+    elif self.difficulty <= 3:
       return 125
-    elif self.difficulty == 8:
+    elif self.difficulty <= 5:
       return 100
-    elif self.difficulty == 9:
+    elif self.difficulty <= 7:
       return 85
-    elif self.difficulty == 10:
+    elif self.difficulty == 8:
+      return 75
+    elif self.difficulty == 9:
       return 65
+    elif self.difficulty == 10:
+      return 55
 
     #a = self.difficulty / MAX_DIFFICULTY
     #return BASE_RATE * (1 - a) + MAX_RATE * a
 
-  def advance(self):
-    return Level(self.difficulty + 1)
+  def next(self):
+    if self.difficulty == MAX_DIFFICULTY:
+      # TODO: you won!
+      return Level(1, self.screen_size, self.on_lose_life)
+
+    return Level(self.difficulty + 1, self.screen_size, self.on_lose_life)
 
   def check_laser_intersection(self, laser_pos):
     for coin in self.coins:
       if (laser_pos[1] <= coin.position[1] + coin.img.rect.h) and (laser_pos[0] <= coin.position[0] + (coin.img.rect.w)) and (laser_pos[0] >= coin.position[0]):
-        self.coins.remove(coin)
+        # move the btc from the coin over to your balance!
+        reward_before = coin.reward
+        coin.reward = max(0, coin.reward - game.ship.mining_laser_power)
+        game.btc_balance += reward_before - coin.reward
+
+        if game.btc_balance >= 1.0: # TODO dynamic target?
+          game.btc_balance = 0.0
+          game.num_lives = 3
+          game.current_level = game.current_level.next()
+          game.ship.lasers = []
+          return False
+
+        if coin.reward == 0:
+          self.coins.remove(coin)
+
         return True
 
     return False
@@ -331,7 +350,7 @@ class Game:
     self.width = w
     self.height = h
 
-    self.current_level = Level(10, (w, h), self.on_lose_life)
+    self.current_level = Level(1, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
     self.state = IDLE
 
@@ -384,6 +403,7 @@ class Game:
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
+    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power), 20, 10)
     putstr(format_btc_balance(self.btc_balance), self.width - 80, 10)
 
     pygame.display.flip()
