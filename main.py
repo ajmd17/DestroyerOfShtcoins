@@ -126,7 +126,8 @@ class Ship:
       laser.move(0, -10)
 
       if game.current_level.check_laser_intersection(laser.position) or laser.position[1] >= game.height:
-        self.lasers.pop(self.lasers.index(laser))
+        if laser in self.lasers: # not been cleared
+          self.lasers.remove(laser)
         
   def render(self, screen):
     for laser in self.lasers:
@@ -201,6 +202,29 @@ class Level:
     return (self.difficulty + 1) * 2
 
   @property
+  def btc_balance_target(self):
+    if self.difficulty == 1:
+      return 1.0
+    elif self.difficulty == 2:
+      return 1.25
+    elif self.difficulty == 3:
+      return 1.5
+    elif self.difficulty == 4:
+      return 1.75
+    elif self.difficulty == 5:
+      return 2
+    elif self.difficulty == 6:
+      return 2.5
+    elif self.difficulty == 7:
+      return 3
+    elif self.difficulty == 8:
+      return 4
+    elif self.difficulty == 9:
+      return 5
+    elif self.difficulty == 10:
+      return 10
+
+  @property
   def coin_speed_multiplier(self):
     return 1 + ((self.difficulty - 1) * 0.033)
 
@@ -239,7 +263,7 @@ class Level:
         coin.reward = max(0, coin.reward - game.ship.mining_laser_power)
         game.btc_balance += reward_before - coin.reward
 
-        if game.btc_balance >= 1.0: # TODO dynamic target?
+        if game.btc_balance >= game.current_level.btc_balance_target:
           game.btc_balance = 0.0
           game.num_lives = 3
           game.current_level = game.current_level.next()
@@ -403,8 +427,14 @@ class Game:
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
-    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power), 20, 10)
-    putstr(format_btc_balance(self.btc_balance), self.width - 80, 10)
+    putstr("level " + str(self.current_level.difficulty) + " / " + str(MAX_DIFFICULTY), 20, 10)
+    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power), 20, 25)
+
+    btc_balance_text = format_btc_balance(self.btc_balance)
+    putstr(btc_balance_text, self.width - text_width(btc_balance_text) - 20, 10)
+
+    btc_goal_text = "goal: " + format_btc_balance(self.current_level.btc_balance_target)
+    putstr(btc_goal_text, self.width - text_width(btc_goal_text) - 20, 25)
 
     pygame.display.flip()
 
