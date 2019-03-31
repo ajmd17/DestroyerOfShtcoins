@@ -3,6 +3,7 @@ from pygame.locals import *
 
 import os
 import re
+import random
 
 from math import sin
 
@@ -19,8 +20,8 @@ class Image:
     self.img = pygame.image.load(filename)
     self.rect = self.img.get_rect()
     
-  def size(self, width, height):
-    self.rect = self.img.get_rect(width, height)
+  def set_size(self, width, height):
+    self.rect = self.img.get_rect(width=width, height=height)
     
   def move(self, x, y):
     self.position = (x, y)
@@ -52,15 +53,20 @@ class Ship:
 
 
 class Coin:
-  def __init__(self, ticker, img, speed):
-    self.position = (0, 0) # TODO make random X and Y at top of screen
+  def __init__(self, ticker, img, position, speed):
+    self.position = position
     self.ticker = ticker
     self.img = img
     self.speed = speed
 
-  
-  def update(self):
-    self.position[1] = self.position - self.speed # TODO what to do when it hits the end? 
+  def is_fork(self):
+    return self.ticker in ['BSV', 'BCH', 'BTCP', 'BTG', 'BTD']
+
+  def update(self, dt):
+    self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1) # TODO what to do when it hits the end? 
+
+
+
     # all bitcoin forks / clones "evil" and will make you lose points / lose the level if they get to the end: this includes Bitcoin Cash, Bitcoin SV, Bitcoin Gold, Bitcoin Private..... yaknow.. 
     
     # most coins just give you points when you shoot them. maybe they make you lose a heart if they touch you?
@@ -71,9 +77,11 @@ class Coin:
     screen.blit(self.img.img, self.position, self.img.rect)
 
 class Level:
-  def __init__(self, difficulty):
+  def __init__(self, difficulty, screen_size):
     self.difficulty = difficulty
+    self.screen_size = screen_size
     self.coins = []
+    self.spawn_coins()
 
   @property
   def density(self): # number of 'coins' per level
@@ -88,9 +96,53 @@ class Level:
     return Level(self.difficulty + 1)
 
   def spawn_coins(self):
+    x_counter = 0
+    y_counter = 0
     for img_file in coin_logos:
-      coin = Coin(re.search(img_file, "^([A-Za-z]*)_logo\.png$"), Image(img_file), 1) # TODO speed
+      if random.randrange(0, 2) != 1:
+        continue
+
+      img = Image("./coins/" + img_file)
+      img.set_size(64, 64)
+
+      x_pos = 0
+
+      per_row = (3, 4)
+
+      if y_counter % 2 == 0:
+        if x_counter != 0 and x_counter % per_row[0] == 0:
+          x_counter = 0
+          y_counter = y_counter + 1
+      else:
+        if x_counter != 0 and x_counter % per_row[1] == 0:
+          x_counter = 0
+          y_counter = y_counter + 1
+
+      if y_counter % 2 == 0:
+        section_w = self.screen_size[0]/per_row[0]
+        x_pos = (x_counter * section_w) + (section_w/2)
+      else:
+        section_w = self.screen_size[0]/per_row[1]
+        x_pos = (x_counter * section_w) + (section_w/2)
+      y_pos = y_counter * 64
+
+      coin = Coin(re.search(img_file, "^([A-Za-z]*)_logo\.png$").toupper, img, (x_pos-32, y_pos), random.randrange(3, 6)*0.1) # TODO speed
       self.coins.append(coin)
+
+      x_counter = x_counter + 1
+
+  def update(self, dt):
+    w, h = pygame.display.get_surface().get_size()
+    
+    for coin in self.coins:
+      coin.update(dt)
+      # check out of bounds
+      if coin.position[1] > h:
+        if coin.is_fork():
+          # lose 1 life.
+          pass
+
+        self.coins.remove(coin)
 
   def render(self, screen):
     for coin in self.coins:
@@ -100,16 +152,20 @@ class Level:
 class Game:
   def __init__(self):
     screen_info = pygame.display.Info()
-    self.screen = pygame.display.set_mode((600, 400))
+    self.screen = pygame.display.set_mode((800, 600))
     w, h = pygame.display.get_surface().get_size()
     #pygame.display.toggle_fullscreen()
 
     self.width = w
     self.height = h
 
-    self.current_level = Level(1)
+    self.current_level = Level(1, (w, h))
     self.ship = Ship((w / 2), h - 15)
     self.state = IDLE
+
+    self.num_lives = 3
+
+    self.life_icon = Image('./lightning.png')
 
     self.running = True
 
@@ -134,12 +190,15 @@ class Game:
 
   def update(self, dt):
     self.ship.update(dt)
-
+    self.current_level.update(dt)
   
   def render(self):
     self.screen.fill((255, 255, 255))
     self.current_level.render(self.screen)
     self.ship.render(self.screen)
+
+    self.screen.blit(self.life_icon.img, (50, self.height - 50), self.life_icon.img.rect)
+
     pygame.display.flip()
 
 
