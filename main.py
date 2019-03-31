@@ -75,11 +75,11 @@ def putstr(string, sx, sy):
       putchar(ch, sx, sy)
       sx += 8
 
-def format_btc_balance(n):
+def format_btc_balance(n, render_plus=False):
   txt = "₿{:1.4f}".format(abs(n))
   if n < 0:
     txt = "-" + txt
-  else:
+  elif render_plus:
     txt = "+" + txt
 
   return txt
@@ -132,7 +132,7 @@ class Ship:
 
   def update(self, dt):
     self.tick = self.tick + dt * 0.001
-    self.position = (min(game.width - self.img.rect.w/2, max(self.img.rect.w/2, lerp(self.position[0], self.next_position[0], min(1.0, self.tick*0.003)))), self.position[1])
+    self.position = (min(game.width - self.img.rect.w/2, max(self.img.rect.w/2, lerp(self.position[0], self.next_position[0], dt*0.003))), self.position[1])
     self.next_position = (self.next_position[0], self.next_position[1] + (sin(self.tick*6)*0.2))
     self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
     if (self.laser_cooldown != 0):
@@ -200,12 +200,8 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
-    txt = "₿{:1.4f}".format(abs(self.reward))
-    if self.reward < 0:
-      txt = "-" + txt
-    else:
-      txt = "+" + txt
-    putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h / 2) - (text_height(txt) / 2))
+    txt = format_btc_balance(self.reward, True)
+    putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h) + 5)
 
 class Level:
   def __init__(self, difficulty, screen_size, on_lose_life):
@@ -424,10 +420,10 @@ class Game:
 
     if key_move_left and not key_move_right:
       if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
-        self.ship.move(-1 * (dt * 0.35), 0)
+        self.ship.move(-1 * (dt * 0.3), 0)
     elif key_move_right and not key_move_left:
       if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
-        self.ship.move(dt * 0.35, 0)
+        self.ship.move(dt * 0.3, 0)
     else:
       pass
 
