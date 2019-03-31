@@ -111,6 +111,7 @@ class Ship:
     self.img = Image('ship.png')
     self.tick = 0.0
     self.mining_laser_power = 0.015
+    self.mining_laser_cost = 0.0015
     self.lasers = []
     self.laser_cooldown = 0
 
@@ -129,6 +130,8 @@ class Ship:
     laser.size(10, 30)
     laser.position = (self.position[0]-24, self.position[1]-48)
     self.lasers.append(laser)
+
+    game.sounds['shoot'].play()
 
   def update(self, dt):
     self.tick = self.tick + dt * 0.001
@@ -149,6 +152,40 @@ class Ship:
     for laser in self.lasers:
       laser.draw()
     screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), self.position[1] - self.img.rect.h), self.img.rect)
+
+
+class EventBox:
+  def __init__(self):
+    self.messages = []
+  
+  def update(self, dt):
+    for msg in self.messages:
+      msg['countdown'] -= 0.01 * dt
+
+      if msg['countdown'] <= 0:
+        self.messages.remove(msg)
+
+  def add_msg(self, msg, color=(0, 255, 0)):
+    if len(self.messages) == 10:
+      self.messages.pop()
+
+    rect = pygame.Surface((125, 25))
+    rect.fill(color)
+    rect.set_alpha(75)
+    self.messages.append({ 'rect': rect, 'msg': msg, 'countdown': 45 })
+
+  def render(self, screen):
+    y_pos = game.height
+    for i in range(len(self.messages), 0, -1):
+      msg = self.messages[i - 1]
+
+      box_x = game.width - msg['rect'].get_width() - 20
+      y_pos -= msg['rect'].get_height() + 3
+      box_y = y_pos
+
+      screen.blit(msg['rect'], (box_x, box_y))
+      putstr(msg['msg'], box_x, box_y)
+
 
 
 class Coin:
@@ -211,6 +248,9 @@ class Level:
     self.coins = []
     self.spawn_coin_counter = self.coin_spawn_rate
     self.spawn_coins()
+    self.btc_reward_accum_pos = 0.0
+    self.btc_reward_accum_neg = 0.0
+    self.btc_reward_timer = 0.0
 
   @property
   def density(self): # number of 'coins' per level
@@ -277,7 +317,18 @@ class Level:
         # move the btc from the coin over to your balance!
         reward_before = coin.reward
         coin.reward = max(0, coin.reward - game.ship.mining_laser_power)
-        game.btc_balance += reward_before - coin.reward
+        to_add = reward_before - coin.reward
+        game.btc_balance += to_add
+        #color = (0, 255, 0)
+        #if to_add < 0:
+        #  color = (255, 0, 0)
+        #game.event_box.add_msg(format_btc_balance(to_add, True), color)
+        if to_add > 0:
+          self.btc_reward_accum_pos += to_add
+          game.sounds['coin'].play()
+        else:
+          self.btc_reward_accum_neg += -1 * to_add
+          game.sounds['hurt'].play()
 
         if game.btc_balance >= game.current_level.btc_balance_target:
           game.btc_balance = 0.0
@@ -359,6 +410,20 @@ class Level:
   def update(self, dt):
     w, h = pygame.display.get_surface().get_size()
 
+    self.btc_reward_timer += dt*0.01
+
+    if self.btc_reward_timer >= 10:
+
+      if self.btc_reward_accum_pos > 0:
+        game.event_box.add_msg(format_btc_balance(self.btc_reward_accum_pos, True), (0, 255, 0))
+        self.btc_reward_accum_pos = 0.0
+
+      if self.btc_reward_accum_neg > 0:
+        game.event_box.add_msg(format_btc_balance(-1 * self.btc_reward_accum_neg, True), (255, 0, 0))
+        self.btc_reward_accum_neg = 0.0
+
+      self.btc_reward_timer = 0.0
+
     self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
 
     if self.spawn_coin_counter <= 0.0:
@@ -395,12 +460,24 @@ class Game:
 
     self.num_lives = 3
     self.btc_balance = 0.0
+    self.btc_laser_cost_accum = 0.0
+    self.btc_laser_cost_timer = 0.0
 
     self.life_icon = Image('./lightning.png')
+    self.event_box = EventBox()
+
+    self.sounds = {
+      'levelup': pygame.mixer.Sound('./assetz/levelup.wav'),
+      'hurt': pygame.mixer.Sound('./assetz/hurt.wav'),
+      'hurt2': pygame.mixer.Sound('./assetz/hurt2.wav'),
+      'coin': pygame.mixer.Sound('./assetz/coin.wav'),
+      'shoot': pygame.mixer.Sound('./assetz/shoot.wav')
+    }
 
     self.running = True
 
   def on_lose_life(self): #todo explanation argument
+    self.sounds['hurt2'].play()
     self.num_lives = self.num_lives - 1
 
     if self.num_lives == 0:
@@ -430,20 +507,35 @@ class Game:
     if key_shoot:
       game.ship.shoot()
 
+      if game.btc_balance > 0:
+        to_sub = (game.btc_balance * game.ship.mining_laser_cost)
+        self.btc_laser_cost_accum += to_sub
+        game.btc_balance = max(0, game.btc_balance - to_sub)
+
   def update(self, dt):
+    self.btc_laser_cost_timer += dt* 0.01
+    if self.btc_laser_cost_timer >= 10:
+      self.btc_laser_cost_timer = 0.0
+
+      if self.btc_laser_cost_accum > 0.0:
+        game.event_box.add_msg(format_btc_balance(-1 * self.btc_laser_cost_accum, True), (255, 0, 0))
+        self.btc_laser_cost_accum = 0.0
+
     self.ship.update(dt)
     self.current_level.update(dt)
+    self.event_box.update(dt)
   
   def render(self):
     self.screen.fill((0, 0, 0))
     self.current_level.render(self.screen)
     self.ship.render(self.screen)
+    self.event_box.render(self.screen)
 
     for i in range(0, self.num_lives):
       self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
     putstr("level " + str(self.current_level.difficulty) + " / " + str(MAX_DIFFICULTY), 20, 10)
-    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power), 20, 25)
+    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power) + "  /  mining laser cost: " + str(self.ship.mining_laser_cost * 100) + "%", 20, 25)
 
     btc_balance_text = format_btc_balance(self.btc_balance)
     putstr(btc_balance_text, self.width - text_width(btc_balance_text) - 20, 10)
