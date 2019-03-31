@@ -83,27 +83,28 @@ class Coin:
     self.speed = speed
 
     if self.is_fork:
-      self.rect = pygame.Surface((75, 75))
-      self.rect.fill((250, 0, 0))
+      self.alpha_counter = 0.0
+      self.rect = pygame.Surface((84, 84))
+      self.rect.fill((255, 255, 255))
+      self.rect.set_colorkey((255, 255, 255))
+      self.rect.set_alpha(35)
 
   @property
   def is_fork(self):
     return self.ticker in ['BSV', 'BCH', 'BTCP', 'BTG', 'BTD']
 
   def update(self, dt):
-    self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1) # TODO what to do when it hits the end? 
-    # all bitcoin forks / clones "evil" and will make you lose points / lose the level if they get to the end: this includes Bitcoin Cash, Bitcoin SV, Bitcoin Gold, Bitcoin Private..... yaknow.. 
-    
-    # most coins just give you points when you shoot them. maybe they make you lose a heart if they touch you?
-
-    # and BTC coins will make you lose 0.33 bitcoins when you shoot them! you start with 1 bitcoin, so you lose 0.33 three times, game over.
+    if self.is_fork:
+      self.alpha_counter = self.alpha_counter + (dt * 0.005)
+      self.rect.set_alpha(max(60, 200 *  sin(self.alpha_counter) * 0.5 + 0.5))
+    self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1)
 
   def render(self, screen):
     if self.is_fork:
       r = 42
-      glow_pos = (int(self.position[0] + 32), int(self.position[1] + 32))
-      pygame.draw.circle(screen, (255, 0, 0, 100), glow_pos, r)
-      #screen.blit(self.rect, )
+      glow_pos = (int(self.position[0] - ((self.rect.get_width() - self.img.rect.w) / 2)), int(self.position[1] - ((self.rect.get_height() - self.img.rect.h) / 2)))
+      pygame.draw.circle(self.rect, (255, 0, 0, 100), (r, r), r)
+      screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
 
 class Level:
