@@ -23,7 +23,7 @@ class Image:
     self.rect = self.img.get_rect(width, height)
     
   def move(self, x, y):
-    self.position = (x, y)
+    self.position = (self.position[0] + x, self.position[1] + y)
 
   def draw(self):
     game.screen.blit(self.img, self.position, self.rect)
@@ -36,18 +36,37 @@ class Ship:
     self.position = (x, y)
     self.img = Image('ship.png')
     self.tick = 0.0
+    self.lasers = []
+    self.laser_cooldown = 0;
 
   def move(self, x, y):
     self.position = (self.position[0] + x, self.position[1] + y)
 
   def shoot(self):
-    pass
+    if self.laser_cooldown != 0:
+      return
+    self.laser_cooldown = 20
+    laser = Image('laser.png')
+    laser.position = self.position
+    self.lasers.append(laser)
 
   def update(self, dt):
     self.tick = self.tick + dt * 0.001
     self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
+    if (self.laser_cooldown != 0):
+        self.laser_cooldown -= 1
+
+    for laser in self.lasers:
+      laser.move(0, -10)
+      print(self.laser_cooldown)
+      if laser.position[1] < 0:
+        print("whop")
+        self.lasers.pop(self.lasers.index(laser))
+        
 
   def render(self, screen):
+    for laser in self.lasers:
+      laser.draw()
     screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), self.position[1] - self.img.rect.h), self.img.rect)
 
 
@@ -57,7 +76,6 @@ class Coin:
     self.ticker = ticker
     self.img = img
     self.speed = speed
-
   
   def update(self):
     self.position[1] = self.position - self.speed # TODO what to do when it hits the end? 
@@ -122,6 +140,7 @@ class Game:
 
     key_move_left = keystate[K_LEFT] or keystate[K_a]
     key_move_right = keystate[K_RIGHT] or keystate[K_d]
+    key_shoot = keystate[K_SPACE]
 
     if key_move_left and not key_move_right:
       if (self.ship.position[0] - (self.ship.img.rect.w/2)) > 0:
@@ -129,6 +148,8 @@ class Game:
     elif key_move_right and not key_move_left:
       if (self.ship.position[0] + (self.ship.img.rect.w/2)) < self.width:
         self.ship.move(dt * 0.1, 0)
+    elif key_shoot:
+      game.ship.shoot()
     else:
       pass
 
