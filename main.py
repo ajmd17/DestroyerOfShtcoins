@@ -19,8 +19,9 @@ class Image:
     self.img = pygame.image.load(filename)
     self.rect = self.img.get_rect()
     
-  def size(self, width, height):
-    self.rect = self.img.get_rect(width, height)
+  def size(self, w, h):
+    self.img = pygame.transform.scale(self.img, (w, h))
+    #self.rect = self.img.get_rect(width=w, height=h)
     
   def move(self, x, y):
     self.position = (self.position[0] + x, self.position[1] + y)
@@ -47,6 +48,7 @@ class Ship:
       return
     self.laser_cooldown = 20
     laser = Image('laser.png')
+    laser.size(10, 30)
     laser.position = self.position
     self.lasers.append(laser)
 
@@ -60,10 +62,8 @@ class Ship:
       laser.move(0, -10)
       print(self.laser_cooldown)
       if laser.position[1] < 0:
-        print("whop")
         self.lasers.pop(self.lasers.index(laser))
         
-
   def render(self, screen):
     for laser in self.lasers:
       laser.draw()
@@ -143,10 +143,10 @@ class Game:
     key_shoot = keystate[K_SPACE]
 
     if key_move_left and not key_move_right:
-      if (self.ship.position[0] - (self.ship.img.rect.w/2)) > 0:
+      if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
         self.ship.move(-1 * (dt * 0.1), 0)
     elif key_move_right and not key_move_left:
-      if (self.ship.position[0] + (self.ship.img.rect.w/2)) < self.width:
+      if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
         self.ship.move(dt * 0.1, 0)
     elif key_shoot:
       game.ship.shoot()
