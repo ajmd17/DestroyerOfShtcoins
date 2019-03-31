@@ -34,24 +34,35 @@ def text_height(text):
 
 def putchar(ch, x, y):
     chrect = chset.get_rect()
+
     if (ch >= 'K' and ch <= 'T'):
-        chrect.topleft = ((ord(ch)-ord('K'))*8, 12)
+      chrect.topleft = ((ord(ch)-ord('K'))*8, 12)
     elif (ch >= 'U' and ch <= 'Z'):
-        chrect.topleft = ((ord(ch)-ord('U'))*8, 24)
+      chrect.topleft = ((ord(ch)-ord('U'))*8, 24)
     else:
-        chrect.topleft = ((ord(ch)-ord('A'))*8, 0)
+      chrect.topleft = ((ord(ch)-ord('A'))*8, 0)
     
     if (ch == '!'):
-        chrect.topleft = (6*8, 24)
+      chrect.topleft = (6*8, 24)
     elif (ch == '?'):
-        chrect.topleft = (7*8, 24)
+      chrect.topleft = (7*8, 24)
     elif (ch == '-'):
-        chrect.topleft = (8*8, 24)
+      chrect.topleft = (8*8, 24)
     elif (ch == ' '):
-        chrect.topleft = (9*8, 24)
+      chrect.topleft = (9*8, 24)
+    elif (ch == '₿'):
+      chrect.topleft = (0*8, 48)
+    elif (ch == '.'):
+      chrect.topleft = (1*8, 48)
+    elif (ch == ','):
+      chrect.topleft = (2*8, 48)
+    elif (ch == '/'):
+      chrect.topleft = (3*8, 48)
+    elif (ch == '+'):
+      chrect.topleft = (4*8, 48)
 
     if (ch >= '0' and ch <= '9'):
-        chrect.topleft = ((ord(ch)-ord('0'))*8, 36)
+      chrect.topleft = ((ord(ch)-ord('0'))*8, 36)
     
     chrect.width = 8
     chrect.height = 12
@@ -60,8 +71,8 @@ def putchar(ch, x, y):
 
 def putstr(string, sx, sy):
     for ch in string.upper():
-        putchar(ch, sx, sy)
-        sx += 8
+      putchar(ch, sx, sy)
+      sx += 8
 
 def format_btc_balance(n):
   txt = "B{:1.4f}".format(abs(n))
@@ -184,7 +195,11 @@ class Coin:
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
       screen.blit(self.rect, glow_pos)
     screen.blit(self.img.img, self.position, self.img.rect)
-    txt = format_btc_balance(self.reward)
+    txt = "₿{:1.4f}".format(abs(self.reward))
+    if self.reward < 0:
+      txt = "-" + txt
+    else:
+      txt = "+" + txt
     putstr(txt, self.position[0] + (self.img.rect.w / 2) - (text_width(txt) / 2), self.position[1] + (self.img.rect.h / 2) - (text_height(txt) / 2))
 
 class Level:
