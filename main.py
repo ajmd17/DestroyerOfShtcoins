@@ -18,7 +18,7 @@ DEAD = 2
 MAX_DIFFICULTY = 10
 BASE_RATE = 300
 MAX_RATE = 30
-IMG_SIZE = 48
+IMG_SIZE = 52
 LASER_SPEED = 10
 
 def lerp(x, y, a):
@@ -111,7 +111,7 @@ class Ship:
     self.img = Image('ship.png')
     self.tick = 0.0
     self.mining_laser_power = 0.015
-    self.mining_laser_cost = 0.0015
+    self.mining_laser_cost = 0.0005
     self.lasers = []
     self.laser_cooldown = 0
 
@@ -144,7 +144,7 @@ class Ship:
     for laser in self.lasers:
       laser.move(0, -LASER_SPEED)
 
-      if game.current_level.check_laser_intersection(laser.position) or laser.position[1] >= game.height:
+      if game.current_level.check_laser_intersection(laser.position) or laser.position[1] <= 0:
         if laser in self.lasers: # not been cleared
           self.lasers.remove(laser)
         
@@ -203,7 +203,7 @@ class Coin:
     if self.is_btc:
       self.reward = -0.33
 
-    if self.is_fork:
+    if self.is_fork or self.is_bitconnect:
       #self.reward = random.randrange(65, 300) * 0.0001
       self.alpha_counter_update_speed = random.randrange(3, 10) * 0.1
       self.alpha_counter = 0.0
@@ -222,16 +222,17 @@ class Coin:
 
   @property
   def is_fork(self):
-    return self.ticker in ['BSV', 'BCH', 'BTCP', 'BTG', 'BTD']
+    return self.ticker in ['BSV', 'BCH', 'BAB', 'BTCP', 'BTG', 'BCD', 'BTCD']
 
   def update(self, dt):
-    if self.is_fork:
+    if self.is_fork or self.is_bitconnect:
       self.alpha_counter = self.alpha_counter + (dt * 0.0085 * self.alpha_counter_update_speed)
       self.rect.set_alpha(max(80, 255 *  sin(self.alpha_counter) * 0.5 + 0.5))
     self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1)
 
   def render(self, screen):
-    if self.is_fork:
+    putstr(self.ticker, self.position[0] + (self.img.rect.w / 2) - (text_width(self.ticker) / 2), self.position[1] - 17)
+    if self.is_fork or self.is_bitconnect:
       r = int(self.rect.get_width() / 2)
       glow_pos = (int(self.position[0] - ((self.rect.get_width() - self.img.rect.w) / 2)), int(self.position[1] - ((self.rect.get_height() - self.img.rect.h) / 2)))
       pygame.draw.circle(self.rect, (255, 85, 50), (r, r), r)
@@ -250,7 +251,8 @@ class Level:
     self.spawn_coins()
     self.btc_reward_accum_pos = 0.0
     self.btc_reward_accum_neg = 0.0
-    self.btc_reward_timer = 0.0
+    self.btc_reward_timer_pos = 0.0
+    self.btc_reward_timer_neg = 0.0
 
   @property
   def density(self): # number of 'coins' per level
@@ -313,7 +315,7 @@ class Level:
 
   def check_laser_intersection(self, laser_pos):
     for coin in self.coins:
-      if (laser_pos[1] <= coin.position[1] + coin.img.rect.h) and (laser_pos[0] <= coin.position[0] + (coin.img.rect.w)) and (laser_pos[0] >= coin.position[0]):
+      if (laser_pos[1] <= coin.position[1]) and (laser_pos[0] <= coin.position[0] + (coin.img.rect.w)) and (laser_pos[0] >= coin.position[0]):
         # move the btc from the coin over to your balance!
         reward_before = coin.reward
         coin.reward = max(0, coin.reward - game.ship.mining_laser_power)
@@ -326,7 +328,7 @@ class Level:
         if to_add > 0:
           self.btc_reward_accum_pos += to_add
           game.sounds['coin'].play()
-        else:
+        elif to_add < 0:
           self.btc_reward_accum_neg += -1 * to_add
           game.sounds['hurt'].play()
 
@@ -354,7 +356,7 @@ class Level:
     x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
     y_pos = 0 - img.rect.h
 
-    coin = Coin(img_file.split('_')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(3, 6)*0.1)
+    coin = Coin(img_file.split('.')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(2, 10)*0.1)
     self.coins.append(coin)
     
   def spawn_coins(self):
@@ -368,8 +370,11 @@ class Level:
     y_counter = 0
 
     for img_file in coin_logos:
-      if random.randrange(0, 2) != 1:
+      ticker = img_file.split('.')[0].upper()
+
+      if ticker != 'BTC' and random.randrange(0, 2) != 1:
         continue
+
       if self.difficulty < 4:
         if y_counter > 2:
           break
@@ -402,7 +407,7 @@ class Level:
         x_pos = (x_counter * section_w) + (section_w/2)
       y_pos = y_counter * 64
 
-      coin = Coin(img_file.split('_')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(3, 6)*0.1)
+      coin = Coin(ticker, img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(2, 10)*0.1)
       self.coins.append(coin)
 
       x_counter = x_counter + 1
@@ -410,19 +415,22 @@ class Level:
   def update(self, dt):
     w, h = pygame.display.get_surface().get_size()
 
-    self.btc_reward_timer += dt*0.01
+    self.btc_reward_timer_pos += dt*0.01
+    self.btc_reward_timer_neg += dt*0.01
 
-    if self.btc_reward_timer >= 10:
-
+    if self.btc_reward_timer_pos >= 12:
       if self.btc_reward_accum_pos > 0:
         game.event_box.add_msg(format_btc_balance(self.btc_reward_accum_pos, True), (0, 255, 0))
         self.btc_reward_accum_pos = 0.0
+  
+      self.btc_reward_timer_pos = 0.0
 
+    if self.btc_reward_timer_neg >= 8:
       if self.btc_reward_accum_neg > 0:
         game.event_box.add_msg(format_btc_balance(-1 * self.btc_reward_accum_neg, True), (255, 0, 0))
         self.btc_reward_accum_neg = 0.0
 
-      self.btc_reward_timer = 0.0
+      self.btc_reward_timer_neg = 0.0
 
     self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
 
@@ -434,7 +442,7 @@ class Level:
       coin.update(dt)
       # check out of bounds
       if coin.position[1] > h:
-        if coin.is_fork:
+        if coin.is_fork or coin.is_bitconnect:
           # lose 1 life.
           self.on_lose_life() # TODO: explanation.
 
