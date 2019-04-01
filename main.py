@@ -20,6 +20,7 @@ BASE_RATE = 300
 MAX_RATE = 30
 IMG_SIZE = 52
 LASER_SPEED = 10
+MAX_BOOST = 10
 
 def lerp(x, y, a):
   return x * (1 - a) + y * a
@@ -178,8 +179,11 @@ class Ship:
   def update(self, dt):
     self.tick = self.tick + dt * 0.001
     self.position = (min(game.width - self.img.rect.w/2, max(self.img.rect.w/2, lerp(self.position[0], self.next_position[0], dt*0.003))), self.position[1])
-    self.next_position = (self.next_position[0], self.next_position[1] + (sin(self.tick*6)*0.2))
-    self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
+    
+    if game.boost <= 0.001:
+      self.next_position = (self.next_position[0], self.next_position[1] + (sin(self.tick*6)*0.2))
+      self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
+
     if (self.laser_cooldown != 0):
         self.laser_cooldown -= 1
 
@@ -193,7 +197,9 @@ class Ship:
   def render(self, screen):
     for laser in self.lasers:
       laser.draw()
-    screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), self.position[1] - self.img.rect.h), self.img.rect)
+
+    boost_perc =  max(0.0, min(1.0, game.boost / MAX_BOOST))
+    screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), (lerp(self.position[1], self.position[1] - 55, boost_perc)) - self.img.rect.h), self.img.rect)
 
 
 class EventBox:
@@ -270,7 +276,7 @@ class Coin:
     if self.is_fork or self.is_bitconnect:
       self.alpha_counter = self.alpha_counter + (dt * 0.0085 * self.alpha_counter_update_speed)
       self.rect.set_alpha(max(80, 255 *  sin(self.alpha_counter) * 0.5 + 0.5))
-    self.position = (self.position[0], self.position[1] + self.speed * dt * 0.1)
+    self.position = (self.position[0], self.position[1] + (self.speed * dt * 0.1) * game.speed)
 
   def render(self, screen):
     putstr(self.ticker, self.position[0] + (self.img.rect.w / 2) - (text_width(self.ticker) / 2), self.position[1] - 17)
@@ -514,6 +520,8 @@ class Game:
     self.btc_laser_cost_accum = 0.0
     self.btc_laser_cost_timer = 0.0
 
+    self.boost = 0.0
+
     self.life_icon = Image('./lightning.png')
     self.event_box = EventBox()
 
@@ -526,6 +534,10 @@ class Game:
     }
 
     self.running = True
+  
+  @property
+  def speed(self):
+    return 1.0 + max(0.0, min(self.boost, 1.85))
 
   def on_lose_life(self): #todo explanation argument
     self.sounds['hurt2'].play()
@@ -545,6 +557,11 @@ class Game:
     key_move_left = keystate[K_LEFT] or keystate[K_a]
     key_move_right = keystate[K_RIGHT] or keystate[K_d]
     key_shoot = keystate[K_SPACE]
+
+    if keystate[K_UP] or keystate[K_w]:
+      self.boost = min(MAX_BOOST, self.boost + (dt * 0.008))
+    else:
+      self.boost = max(0, self.boost - dt * 0.01)
 
     if key_move_left and not key_move_right:
       if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
