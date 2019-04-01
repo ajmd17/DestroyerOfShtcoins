@@ -180,7 +180,7 @@ class Ship:
     self.tick = self.tick + dt * 0.001
     self.position = (min(game.width - self.img.rect.w/2, max(self.img.rect.w/2, lerp(self.position[0], self.next_position[0], dt*0.003))), self.position[1])
     
-    if game.boost <= 0.001:
+    if game.boost <= 0.001 or game.boost == MAX_BOOST:
       self.next_position = (self.next_position[0], self.next_position[1] + (sin(self.tick*6)*0.2))
       self.position = (self.position[0], self.position[1] + (sin(self.tick*6)*0.2))
 
@@ -537,7 +537,7 @@ class Game:
   
   @property
   def speed(self):
-    return 1.0 + max(0.0, min(self.boost, 1.85))
+    return 1.0 + max(0.0, min(self.boost, 1.55))
 
   def on_lose_life(self): #todo explanation argument
     self.sounds['hurt2'].play()
