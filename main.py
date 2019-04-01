@@ -98,8 +98,46 @@ class Image:
   def move(self, x, y):
     self.position = (self.position[0] + x, self.position[1] + y)
 
-  def draw(self):
+  def draw(self, frame_loc=(-1, -1), frame_dim=(-1, -1)):
+    if frame_dim != (-1, -1):
+      self.rect = self.img.get_rect(width=frame_dim[0], height=frame_dim[1])
+    if frame_loc != (-1, -1):
+      self.rect.topleft = frame_loc
+      
     game.screen.blit(self.img, self.position, self.rect)
+
+class SpriteSheet:
+  def __init__(self, filename, frame_size, frame_amt=(1, 0)):
+    self.img = Image(filename)
+    self.frame_size = frame_size
+    self.frame_amt = frame_amt
+    self.frame_counter = [0, 0]
+
+  def progress_frame(self):
+    self.frame_counter[0] += self.frame_size[0]
+    # if frame counter x is greater than size x, increment y
+    if self.frame_counter[0] > self.frame_size[0]:
+      self.frame_counter[1] += self.frame_size[1]
+      self.frame_counter[0] = 0
+    # if frame counter y is greater than size y, reset counter
+    if (self.frame_counter[1] > self.frame_size[1]):
+        self.frame_counter = [0, 0]
+
+  def draw(self):
+    self.img.draw(self.frame_counter, self.frame_size)
+
+class Star:
+  def __init__(self):
+    self.sprite = SpriteSheet('assetz/sh_star.png', (16, 16), (2, 0))
+    self.tick = 0
+    
+  def update(self):
+    self.tick += 1
+    if random.randrange(0, 10) == 2:
+      self.sprite.progress_frame()
+  
+  def draw(self):
+    self.sprite.draw()
 
 #chset = Image('chset_8_12.png')
 #chrect = chset.img.get_rect(width=8, height=12)
@@ -149,7 +187,6 @@ class Ship:
     for laser in self.lasers:
       laser.draw()
     screen.blit(self.img.img, (self.position[0] - (self.img.rect.w / 2), self.position[1] - self.img.rect.h), self.img.rect)
-
 
 class Coin:
   def __init__(self, ticker, img, position, speed):
@@ -383,6 +420,7 @@ class Level:
     for coin in self.coins:
       coin.render(screen)
 
+star = Star()
 
 class Game:
   def __init__(self):
@@ -435,6 +473,7 @@ class Game:
       game.ship.shoot()
 
   def update(self, dt):
+    star.update()
     self.ship.update(dt)
     self.current_level.update(dt)
   
@@ -455,8 +494,8 @@ class Game:
     btc_goal_text = "goal: " + format_btc_balance(self.current_level.btc_balance_target)
     putstr(btc_goal_text, self.width - text_width(btc_goal_text) - 20, 25)
 
+    star.draw()
     pygame.display.flip()
-
 
 game = Game()
 clock = pygame.time.Clock()
