@@ -581,6 +581,9 @@ class StartScreen(Screen):
 
     self.coins = []
     self.spawn_coin_counter = 0.0
+    self.logo = Image("assetz/start1.png")
+    self.logo.size(232, 52)
+    self.logo.move(self.width/2-116, 160)
 
     #self.add_button()
     self.play_button = Button("Play!", self.width/2, self.height/2)
@@ -602,10 +605,6 @@ class StartScreen(Screen):
   def update(self, dt):
     self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
 
-    if self.play_button.is_clicked:
-      print("ree")
-      #self.remove_button(self.play_button)
-
     if self.spawn_coin_counter <= 0.0:
       self.spawn_coin()
       self.spawn_coin_counter = 400
@@ -620,10 +619,10 @@ class StartScreen(Screen):
   def render(self, screen):
     for coin in self.coins:
       coin.render(screen)
-
     super().render(screen)
+    self.logo.draw()
 
-class Game(Screen):
+class Game():
   def __init__(self):
     screen_info = pygame.display.Info()
     self.screen = pygame.display.set_mode((800, 600))
@@ -632,7 +631,7 @@ class Game(Screen):
     self.width = w
     self.height = h
 
-    self.current_level = Level(10, (w, h), self.on_lose_life)
+    self.current_level = Level(1, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
 
     start_screen = StartScreen()
