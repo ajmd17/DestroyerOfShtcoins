@@ -575,8 +575,6 @@ class StartScreen(Screen):
     self.spawn_coin_counter = 0.0
 
     self.add_button(Button("Play!", self.width/2, self.height/2))
-    self.width = w
-    self.height = h
 
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
@@ -602,7 +600,7 @@ class StartScreen(Screen):
       coin.update(dt)
 
       # check out of bounds
-      if coin.position[1] > h:
+      if coin.position[1] > self.height:
         self.coins.remove(coin)
 
   def render(self, screen):
