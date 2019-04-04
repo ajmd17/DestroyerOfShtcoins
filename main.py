@@ -525,6 +525,12 @@ class Button:
     y = self.position[1] - (self.height / 2)
     return (mpos[0] > x and mpos[0] < x + self.width) and (mpos[1] > y and mpos[1] < y + self.height)
 
+  @property
+  def is_clicked(self):
+    if self.is_hover and pygame.mouse.get_pressed()[0]:
+      return True
+    return False
+
   def render(self, screen):
     if self.is_hover:
       self.rect.fill((155, 155, 155))
@@ -554,6 +560,9 @@ class Screen:
 
   def add_button(self, btn):
     self.buttons.append(btn)
+  
+  def remove_button(self, btn):
+    self.buttons.pop(self.buttons.index(btn))
 
   @property
   def screen_size(self):
@@ -566,7 +575,6 @@ class Screen:
     for btn in self.buttons:
       btn.render(screen)
 
-
 class StartScreen(Screen):
   def __init__(self):
     super().__init__()
@@ -574,7 +582,9 @@ class StartScreen(Screen):
     self.coins = []
     self.spawn_coin_counter = 0.0
 
-    self.add_button(Button("Play!", self.width/2, self.height/2))
+    #self.add_button()
+    self.play_button = Button("Play!", self.width/2, self.height/2)
+    self.add_button(self.play_button)
 
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
@@ -591,6 +601,10 @@ class StartScreen(Screen):
 
   def update(self, dt):
     self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
+
+    if self.play_button.is_clicked:
+      print("ree")
+      #self.remove_button(self.play_button)
 
     if self.spawn_coin_counter <= 0.0:
       self.spawn_coin()
@@ -609,8 +623,7 @@ class StartScreen(Screen):
 
     super().render(screen)
 
-
-class Game:
+class Game(Screen):
   def __init__(self):
     screen_info = pygame.display.Info()
     self.screen = pygame.display.set_mode((800, 600))
@@ -668,6 +681,9 @@ class Game:
             self.running = False
     
     keystate = pygame.key.get_pressed()
+
+    if self.current_screen != None and self.current_screen.play_button.is_clicked:
+      self.current_screen = None
 
     if self.playing:
 
