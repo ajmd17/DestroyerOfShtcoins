@@ -11,10 +11,6 @@ from math import sin
 pygame.init()
 coin_logos = os.listdir('./coins')
 
-IDLE = 0
-ALIVE = 1
-DEAD = 2
-
 MAX_DIFFICULTY = 10
 BASE_RATE = 300
 MAX_RATE = 30
@@ -502,6 +498,120 @@ class Level:
 
 star = Star()
 
+class Button:
+  def __init__(self, text, x, y):
+    self.text = text
+    self.position = (x, y)
+    
+    self.rect = pygame.Surface((self.width, self.height))
+    self.rect.fill((120, 120, 120))
+
+  @property
+  def padding(self):
+    return (20, 10)
+
+  @property
+  def width(self):
+    return text_width(self.text) + (self.padding[0]*2)
+
+  @property
+  def height(self):
+    return text_height(self.text) + (self.padding[1] * 2)
+
+  @property
+  def is_hover(self):
+    mpos = pygame.mouse.get_pos()
+    x = self.position[0] - (self.width / 2)
+    y = self.position[1] - (self.height / 2)
+    return (mpos[0] > x and mpos[0] < x + self.width) and (mpos[1] > y and mpos[1] < y + self.height)
+
+  def render(self, screen):
+    if self.is_hover:
+      self.rect.fill((155, 155, 155))
+    else:
+      self.rect.fill((120, 120, 120))
+    screen.blit(self.rect, (self.position[0] - (self.width / 2), self.position[1] - (self.height / 2)))
+    left_border = pygame.Surface((2, self.height))
+    left_border.fill((180, 180, 180))
+    screen.blit(left_border, (self.position[0] - (self.width / 2), self.position[1] - (self.height / 2)))
+    top_border = pygame.Surface((self.width, 2))
+    top_border.fill((180, 180, 180))
+    screen.blit(top_border, (self.position[0] - (self.width / 2), self.position[1] - (self.height/2)))
+    right_border = pygame.Surface((2, self.height))
+    right_border.fill((90, 90, 90))
+    screen.blit(right_border, (self.position[0] + (self.width / 2), self.position[1] - (self.height / 2)))
+    bottom_border = pygame.Surface((self.width + 2, 2))
+    bottom_border.fill((90, 90, 90))
+    screen.blit(bottom_border, (self.position[0] - (self.width / 2), self.position[1] + (self.height/2)))
+    putstr(self.text, self.position[0] - (self.width / 2) + self.padding[0], self.position[1] - (self.height / 2) + self.padding[1])
+
+class Screen:
+  def __init__(self):
+    self.buttons = []
+    w, h = self.screen_size
+    self.width = w
+    self.height = h
+
+  def add_button(self, btn):
+    self.buttons.append(btn)
+
+  @property
+  def screen_size(self):
+    return pygame.display.get_surface().get_size()
+
+  def update(self, dt):
+    pass
+
+  def render(self, screen):
+    for btn in self.buttons:
+      btn.render(screen)
+
+
+class StartScreen(Screen):
+  def __init__(self):
+    super().__init__()
+
+    self.coins = []
+    self.spawn_coin_counter = 0.0
+
+    self.add_button(Button("Play!", self.width/2, self.height/2))
+    self.width = w
+    self.height = h
+
+  def spawn_coin(self):
+    idx = random.randrange(0, len(coin_logos))
+    img_file = coin_logos[idx]
+
+    img = Image("./coins/" + img_file)
+    img.size(IMG_SIZE, IMG_SIZE)
+
+    x_pos = random.randrange(img.rect.w/2, self.screen_size[0] - img.rect.w)
+    y_pos = 0 - img.rect.h
+
+    coin = Coin(img_file.split('.')[0].upper(), img, (x_pos-(IMG_SIZE/2), y_pos), random.randrange(2, 10)*0.1)
+    self.coins.append(coin)
+
+  def update(self, dt):
+    self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
+
+    if self.spawn_coin_counter <= 0.0:
+      self.spawn_coin()
+      self.spawn_coin_counter = 400
+
+    for coin in self.coins:
+      coin.update(dt)
+
+      # check out of bounds
+      if coin.position[1] > h:
+        self.coins.remove(coin)
+
+  def render(self, screen):
+    for coin in self.coins:
+      coin.render(screen)
+
+    super().render(screen)
+
+
 class Game:
   def __init__(self):
     screen_info = pygame.display.Info()
@@ -513,7 +623,10 @@ class Game:
 
     self.current_level = Level(10, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
-    self.state = IDLE
+
+    start_screen = StartScreen()
+    self.current_screen = start_screen
+    self.dead = False
 
     self.num_lives = 3
     self.btc_balance = 0.0
@@ -539,6 +652,10 @@ class Game:
   def speed(self):
     return 1.0 + max(0.0, min(self.boost, 1.55))
 
+  @property
+  def playing(self):
+    return (self.current_screen is None) and (not self.dead)
+
   def on_lose_life(self): #todo explanation argument
     self.sounds['hurt2'].play()
     self.num_lives = self.num_lives - 1
@@ -554,64 +671,74 @@ class Game:
     
     keystate = pygame.key.get_pressed()
 
-    key_move_left = keystate[K_LEFT] or keystate[K_a]
-    key_move_right = keystate[K_RIGHT] or keystate[K_d]
-    key_shoot = keystate[K_SPACE]
+    if self.playing:
 
-    if keystate[K_UP] or keystate[K_w]:
-      self.boost = min(MAX_BOOST, self.boost + (dt * 0.008))
-    else:
-      self.boost = max(0, self.boost - dt * 0.01)
+      key_move_left = keystate[K_LEFT] or keystate[K_a]
+      key_move_right = keystate[K_RIGHT] or keystate[K_d]
+      key_shoot = keystate[K_SPACE]
 
-    if key_move_left and not key_move_right:
-      if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
-        self.ship.move(-1 * (dt * 0.3), 0)
-    elif key_move_right and not key_move_left:
-      if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
-        self.ship.move(dt * 0.3, 0)
-    else:
-      pass
+      if keystate[K_UP] or keystate[K_w]:
+        self.boost = min(MAX_BOOST, self.boost + (dt * 0.008))
+      else:
+        self.boost = max(0, self.boost - dt * 0.01)
 
-    if key_shoot:
-      game.ship.shoot()
+      if key_move_left and not key_move_right:
+        if (self.ship.position[0] - (self.ship.img.rect.w / 2)) > 0:
+          self.ship.move(-1 * (dt * 0.3), 0)
+      elif key_move_right and not key_move_left:
+        if (self.ship.position[0] + (self.ship.img.rect.w / 2)) < self.width:
+          self.ship.move(dt * 0.3, 0)
+      else:
+        pass
 
-      if game.btc_balance > 0:
-        to_sub = (game.btc_balance * game.ship.mining_laser_cost)
-        self.btc_laser_cost_accum += to_sub
-        game.btc_balance = max(0, game.btc_balance - to_sub)
+      if key_shoot:
+        game.ship.shoot()
+
+        if game.btc_balance > 0:
+          to_sub = (game.btc_balance * game.ship.mining_laser_cost)
+          self.btc_laser_cost_accum += to_sub
+          game.btc_balance = max(0, game.btc_balance - to_sub)
 
   def update(self, dt):
-    self.btc_laser_cost_timer += dt* 0.01
-    if self.btc_laser_cost_timer >= 10:
-      self.btc_laser_cost_timer = 0.0
+    if self.current_screen is not None:
+      self.current_screen.update(dt)
+    else:
+      self.btc_laser_cost_timer += dt* 0.01
+      if self.btc_laser_cost_timer >= 10:
+        self.btc_laser_cost_timer = 0.0
 
-      if self.btc_laser_cost_accum > 0.0:
-        game.event_box.add_msg(format_btc_balance(-1 * self.btc_laser_cost_accum, True), (255, 0, 0))
-        self.btc_laser_cost_accum = 0.0
+        if self.btc_laser_cost_accum > 0.0:
+          game.event_box.add_msg(format_btc_balance(-1 * self.btc_laser_cost_accum, True), (255, 0, 0))
+          self.btc_laser_cost_accum = 0.0
 
-    self.ship.update(dt)
-    self.current_level.update(dt)
-    self.event_box.update(dt)
+      self.ship.update(dt)
+      self.current_level.update(dt)
+      self.event_box.update(dt)
   
   def render(self):
     self.screen.fill((0, 0, 0))
-    self.current_level.render(self.screen)
-    self.ship.render(self.screen)
-    self.event_box.render(self.screen)
 
-    for i in range(0, self.num_lives):
-      self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
+    if self.current_screen is not None:
+      self.current_screen.render(self.screen)
+    else:
+      self.current_level.render(self.screen)
+      self.ship.render(self.screen)
+      self.event_box.render(self.screen)
 
-    putstr("level " + str(self.current_level.difficulty) + " / " + str(MAX_DIFFICULTY), 20, 10)
-    putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power) + "  /  mining laser cost: " + str(self.ship.mining_laser_cost * 100) + "%", 20, 25)
+      for i in range(0, self.num_lives):
+        self.screen.blit(self.life_icon.img, (30 + (45 * i), self.height - 50), self.life_icon.rect)
 
-    btc_balance_text = format_btc_balance(self.btc_balance)
-    putstr(btc_balance_text, self.width - text_width(btc_balance_text) - 20, 10)
+      putstr("level " + str(self.current_level.difficulty) + " / " + str(MAX_DIFFICULTY), 20, 10)
+      putstr("mining laser power: " + format_btc_balance(self.ship.mining_laser_power) + "  /  mining laser cost: " + str(self.ship.mining_laser_cost * 100) + "%", 20, 25)
 
-    btc_goal_text = "goal: " + format_btc_balance(self.current_level.btc_balance_target)
-    putstr(btc_goal_text, self.width - text_width(btc_goal_text) - 20, 25)
+      btc_balance_text = format_btc_balance(self.btc_balance)
+      putstr(btc_balance_text, self.width - text_width(btc_balance_text) - 20, 10)
 
-    star.draw()
+      btc_goal_text = "goal: " + format_btc_balance(self.current_level.btc_balance_target)
+      putstr(btc_goal_text, self.width - text_width(btc_goal_text) - 20, 25)
+
+      star.draw()
+
     pygame.display.flip()
 
 game = Game()
