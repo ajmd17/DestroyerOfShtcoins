@@ -572,8 +572,6 @@ class Screen:
   def update(self, dt):
     left_click = pygame.mouse.get_pressed()[0]
 
-    print(left_click)
-
     for btn in self.buttons:
       if left_click and btn.is_hover:
         btn.onclick()
@@ -613,6 +611,8 @@ class StartScreen(Screen):
     self.coins.append(coin)
 
   def update(self, dt):
+    super().update(dt)
+
     self.spawn_coin_counter = self.spawn_coin_counter - dt * 0.1
 
     if self.spawn_coin_counter <= 0.0:
@@ -689,11 +689,11 @@ class Game():
     self.event_box = EventBox()
 
     self.sounds = {
-      'levelup': load_sound('./assetz/levelup.wav'),
-      'hurt': load_sound('./assetz/hurt.wav'),
-      'hurt2': load_sound('./assetz/hurt2.wav'),
-      'coin': load_sound('./assetz/coin.wav'),
-      'shoot': load_sound('./assetz/shoot.wav')
+      'levelup': load_sound('assetz/levelup.wav'),
+      'hurt': load_sound('assetz/hurt.wav'),
+      'hurt2': load_sound('assetz/hurt2.wav'),
+      'coin': load_sound('assetz/coin.wav'),
+      'shoot': load_sound('assetz/shoot.wav')
     }
 
     self.running = True
