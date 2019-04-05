@@ -107,41 +107,80 @@ class SpriteSheet:
   def __init__(self, filename, frame_size, frame_amt=(1, 0)):
     self.img = Image(filename)
     self.frame_size = frame_size
-    self.frame_amt = frame_amt
+    self.frame_amt = (frame_amt[0]-1, frame_amt[1]-1)
     self.frame_counter = [0, 0]
 
   def progress_frame(self):
-    self.frame_counter[0] += self.frame_size[0]
+    self.frame_counter[0] += 1
     # if frame counter x is greater than size x, increment y
-    if self.frame_counter[0] > self.frame_size[0]:
-      self.frame_counter[1] += self.frame_size[1]
+    if self.frame_counter[0] > self.frame_amt[0]:
+      self.frame_counter[1] += 1
       self.frame_counter[0] = 0
     # if frame counter y is greater than size y, reset counter
-    if (self.frame_counter[1] > self.frame_size[1]):
+    if (self.frame_counter[1] > self.frame_amt[1]):
         self.frame_counter = [0, 0]
 
   def draw(self):
-    self.img.draw(self.frame_counter, self.frame_size)
+    self.img.draw((self.frame_counter[0]*self.frame_size[0], self.frame_counter[1]*self.frame_size[1]), self.frame_size)
 
 class Star:
   def __init__(self):
-    self.sprite = SpriteSheet('assetz/sh_star.png', (16, 16), (2, 0))
-    self.tick = 0
+    self.sprite = SpriteSheet('assetz/sh_star.png', (16, 16), (3, 1))
     
   def update(self):
-    self.tick += 1
-    if random.randrange(0, 10) == 2:
-      self.sprite.progress_frame()
+    self.sprite.progress_frame()
   
+  def move(self, x, y):
+    self.sprite.img.move(x, y)
+
   def draw(self):
     self.sprite.draw()
 
-# class Stars:
-#   def __init__(self):
+class Stars:
+  def __init__(self):
+    self.ticks = 0
+    self.ticks_wait = random.randrange(0, 40)
+    self.stars_far = []
+    self.stars_close = []
 
+    for i in range(0, random.randrange(10, 20)):
+      star = Star()
+      for i in range(0, 2):
+        star.update()
+      star.move(random.randrange(0, 800), random.randrange(0, 600))
+      self.stars_far.append(star)
 
-#chset = Image('chset_8_12.png')
-#chrect = chset.img.get_rect(width=8, height=12)
+    for i in range(0, random.randrange(10, 20)):
+      star = Star()
+      for i in range(0, 2):
+        star.update()
+      star.move(random.randrange(0, 800), random.randrange(0, 600))
+      self.stars_close.append(star)
+
+  def move(self, x, y):
+    for star in self.stars_close:
+      star.move(x, y)
+      if star.sprite.img.position[1] > 600:
+        self.stars_close.pop(self.stars_close.index(star))
+        star = Star()
+        for i in range(0, 2):
+          star.update()
+        star.move(random.randrange(0, 800), 0)
+        self.stars_close.append(star)
+
+  def update(self):
+    if self.ticks != self.ticks_wait:
+      self.ticks += 1
+      return
+    self.ticks = 0
+    self.stars_far[random.randrange(0, len(self.stars_far))].update()
+    self.stars_close[random.randrange(0, len(self.stars_close))].update()
+
+  def draw(self):
+    for star in self.stars_far:
+      star.draw()
+    for star in self.stars_close:
+      star.draw()
 
 class Ship:
   def __init__(self, x, y):
@@ -500,8 +539,6 @@ class Level:
     for coin in self.coins:
       coin.render(screen)
 
-star = Star()
-
 class Button:
   def __init__(self, text, x, y, onclick):
     self.text = text
@@ -824,13 +861,14 @@ class Game():
     self.height = h
 
     self.ship = Ship((w / 2), h - 15)
+    self.stars = Stars()
 
     start_screen = StartScreen()
     self.current_screen = start_screen
 
     self.setup_game()
 
-    self.life_icon = Image('./lightning.png')
+    self.life_icon = Image('./assetz/lightning.png')
     self.event_box = EventBox()
 
     self.sounds = {}
@@ -918,6 +956,9 @@ class Game():
       self.ship.update(dt)
       self.current_level.update(dt)
       self.event_box.update(dt)
+
+      self.stars.move(0, dt*0.01)
+      self.stars.update()
   
   def render(self):
     self.screen.fill((0, 0, 0))
@@ -925,6 +966,7 @@ class Game():
     if self.current_screen is not None:
       self.current_screen.render(self.screen)
     else:
+      self.stars.draw()
       self.current_level.render(self.screen)
       self.ship.render(self.screen)
       self.event_box.render(self.screen)
@@ -940,8 +982,6 @@ class Game():
 
       btc_goal_text = "goal: " + format_btc_balance(self.current_level.btc_balance_target)
       putstr(btc_goal_text, self.width - text_width(btc_goal_text) - 20, 25)
-
-      star.draw()
 
     pygame.display.flip()
 
