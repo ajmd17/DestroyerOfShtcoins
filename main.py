@@ -499,9 +499,10 @@ class Level:
 star = Star()
 
 class Button:
-  def __init__(self, text, x, y):
+  def __init__(self, text, x, y, onclick):
     self.text = text
     self.position = (x, y)
+    self.onclick = onclick
     
     self.rect = pygame.Surface((self.width, self.height))
     self.rect.fill((120, 120, 120))
@@ -569,7 +570,13 @@ class Screen:
     return pygame.display.get_surface().get_size()
 
   def update(self, dt):
-    pass
+    left_click = pygame.mouse.get_pressed()[0]
+
+    print(left_click)
+
+    for btn in self.buttons:
+      if left_click and btn.is_hover:
+        btn.onclick()
 
   def render(self, screen):
     for btn in self.buttons:
@@ -586,8 +593,11 @@ class StartScreen(Screen):
     self.logo.move(self.width/2-116, 160)
 
     #self.add_button()
-    self.play_button = Button("Play!", self.width/2, self.height/2)
+    self.play_button = Button("Play!", self.width/2, self.height/2, self.play_button_click)
     self.add_button(self.play_button)
+
+  def play_button_click(self):
+    game.current_screen = None
 
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
@@ -622,6 +632,36 @@ class StartScreen(Screen):
     super().render(screen)
     self.logo.draw()
 
+class YouDiedScreen(Screen):
+  def __init__(self):
+    super().__init__()
+
+    self.restart_button = Button("Restart", self.width/2, self.height/2, self.restart_game)
+    self.add_button(self.restart_button)
+
+    self.quit_button = Button("Quit", self.width/2, self.height/2, self.quit_game)
+    self.add_button(self.quit_button)
+  
+  def restart_game(self):
+    game.current_screen = None
+
+  def quit_game(self):
+    game.current_screen = StartScreen()
+
+# sound stuff
+class dummysound:
+    def play(self): pass
+
+def load_sound(file):
+    if not pygame.mixer: return dummysound()
+    file = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data', file)
+    try:
+        sound = pygame.mixer.Sound(file)
+        return sound
+    except pygame.error:
+        print ('Warning, unable to load, %s' % file)
+    return dummysound()
+
 class Game():
   def __init__(self):
     screen_info = pygame.display.Info()
@@ -649,11 +689,11 @@ class Game():
     self.event_box = EventBox()
 
     self.sounds = {
-      'levelup': pygame.mixer.Sound('./assetz/levelup.wav'),
-      'hurt': pygame.mixer.Sound('./assetz/hurt.wav'),
-      'hurt2': pygame.mixer.Sound('./assetz/hurt2.wav'),
-      'coin': pygame.mixer.Sound('./assetz/coin.wav'),
-      'shoot': pygame.mixer.Sound('./assetz/shoot.wav')
+      'levelup': load_sound('./assetz/levelup.wav'),
+      'hurt': load_sound('./assetz/hurt.wav'),
+      'hurt2': load_sound('./assetz/hurt2.wav'),
+      'coin': load_sound('./assetz/coin.wav'),
+      'shoot': load_sound('./assetz/shoot.wav')
     }
 
     self.running = True
@@ -680,9 +720,6 @@ class Game():
             self.running = False
     
     keystate = pygame.key.get_pressed()
-
-    if self.current_screen != None and self.current_screen.play_button.is_clicked:
-      self.current_screen = None
 
     if self.playing:
 
