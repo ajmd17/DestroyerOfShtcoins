@@ -377,10 +377,7 @@ class Level:
           game.sounds['hurt'].play()
 
         if game.btc_balance >= game.current_level.btc_balance_target:
-          game.btc_balance = 0.0
-          game.num_lives = 3
-          game.current_level = game.current_level.next()
-          game.ship.lasers = []
+          game.current_screen = LevelUpScreen()
           return False
 
         if coin.reward == 0:
@@ -595,6 +592,7 @@ class StartScreen(Screen):
     self.add_button(self.play_button)
 
   def play_button_click(self):
+    game.setup_game()
     game.current_screen = None
 
   def spawn_coin(self):
@@ -639,14 +637,31 @@ class YouDiedScreen(Screen):
     self.restart_button = Button("Restart", self.width/2, self.height/2, self.restart_game)
     self.add_button(self.restart_button)
 
-    self.quit_button = Button("Quit", self.width/2, self.height/2, self.quit_game)
+    self.quit_button = Button("Quit", self.width/2, self.height/2 + self.restart_button.height + 15, self.quit_game)
     self.add_button(self.quit_button)
   
   def restart_game(self):
+    game.setup_game()
     game.current_screen = None
 
   def quit_game(self):
     game.current_screen = StartScreen()
+
+class LevelUpScreen(Screen):
+  def __init__(self):
+    super().__init__()
+
+    self.skip_timer = 0.0
+  
+  def update(self, dt):
+    super().update(dt)
+
+    self.skip_timer += 0.01*dt
+
+    if self.skip_timer >= 30:
+      game.setup_game()
+      game.current_level = game.current_level.next()
+      game.current_screen = None
 
 # sound stuff
 class dummysound:
@@ -676,14 +691,8 @@ class Game():
 
     start_screen = StartScreen()
     self.current_screen = start_screen
-    self.dead = False
 
-    self.num_lives = 3
-    self.btc_balance = 0.0
-    self.btc_laser_cost_accum = 0.0
-    self.btc_laser_cost_timer = 0.0
-
-    self.boost = 0.0
+    self.setup_game()
 
     self.life_icon = Image('./lightning.png')
     self.event_box = EventBox()
@@ -694,6 +703,15 @@ class Game():
       self.sounds[k] = load_sound(k + '.wav')
 
     self.running = True
+
+  def setup_game(self):
+    self.dead = False
+    self.num_lives = 3
+    self.btc_balance = 0.0
+    self.btc_laser_cost_accum = 0.0
+    self.btc_laser_cost_timer = 0.0
+    self.boost = 0.0
+    self.ship.lasers = []
   
   @property
   def speed(self):
@@ -708,8 +726,7 @@ class Game():
     self.num_lives = self.num_lives - 1
 
     if self.num_lives == 0:
-      # TODO game over
-      self.num_lives = 3
+      self.current_screen = YouDiedScreen()
 
   def check_events(self, dt):
     for event in pygame.event.get():
