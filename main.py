@@ -381,6 +381,13 @@ class Level:
           return False
 
         if coin.reward == 0:
+          if coin.is_btc:
+            game.stats.num_btc_destroyed += 1
+          elif coin.is_bitconnect or coin.is_fork:
+            game.stats.num_sour_coins_destroyed += 1
+          else:
+            game.stats.num_shtcoins_destroyed += 1
+
           self.coins.remove(coin)
 
         return True
@@ -555,6 +562,7 @@ class Screen:
     w, h = self.screen_size
     self.width = w
     self.height = h
+    self.cooloff = 0
 
   def add_button(self, btn):
     self.buttons.append(btn)
@@ -567,10 +575,11 @@ class Screen:
     return pygame.display.get_surface().get_size()
 
   def update(self, dt):
+    self.cooloff += 0.01*dt
     left_click = pygame.mouse.get_pressed()[0]
 
     for btn in self.buttons:
-      if left_click and btn.is_hover:
+      if self.cooloff > 1 and left_click and btn.is_hover:
         btn.onclick()
 
   def render(self, screen):
@@ -590,10 +599,14 @@ class StartScreen(Screen):
     #self.add_button()
     self.play_button = Button("Play!", self.width/2, self.height/2, self.play_button_click)
     self.add_button(self.play_button)
+    self.about_button = Button("About", self.width/2, self.height/2 + 45, self.about_button_click)
+    self.add_button(self.about_button)
 
   def play_button_click(self):
-    game.setup_game()
-    game.current_screen = None
+    game.current_screen = TutorialScreen()
+
+  def about_button_click(self):
+    game.current_screen = AboutScreen()
 
   def spawn_coin(self):
     idx = random.randrange(0, len(coin_logos))
@@ -647,21 +660,139 @@ class YouDiedScreen(Screen):
   def quit_game(self):
     game.current_screen = StartScreen()
 
+  def render(self, screen):
+    super().render(screen)
+
+    putstr("Mission Failed", (self.width/2) - (text_width("Mission Failed")/2), 150)
+    putstr("Unfortunately, you let too many sour coins get away!", (self.width/2) - (text_width("Unfortunately, you let too many sour coins get away!")/2), 175)
+    putstr("Try again?", (self.width/2) - (text_width("Try again?")/2), 200)
+
+class TutorialScreen(Screen):
+  def __init__(self):
+    super().__init__()
+
+    self.play_button = Button("OK!", self.width/2, self.offset+(25 * len(self.tutorial_text))+60, self.play_button_click)
+    self.add_button(self.play_button)
+  
+  def play_button_click(self):
+    game.setup_game()
+    game.current_screen = None
+
+  @property
+  def offset(self):
+    return 100
+
+  @property
+  def tutorial_text(self):
+    return [
+      "Destroy coins to collect ₿. Do not destroy Bitcoins though, you will lose ₿!",
+      "Reach the target ₿ goal to complete the level. Found in the top right corner.",
+      "Do not let the sour coins escape! They emit a red glow.",
+      "Letting three sour coins slip from your grasp is game over."
+      "",
+      "",
+      "Control your ship",
+      "A or Left Arrow - Move left",
+      "D or Right Arrow - Move right",
+      "W or Up Arrow - Accelerate forward",
+      "Space bar - Fire lasers"
+    ]
+
+  def render(self, screen):
+    super().render(screen)
+
+    tutorial_text = self.tutorial_text
+    putstr("How to Play", (self.width/2) - (text_width("How to Play")/2), self.offset)
+
+    count = 1
+    for s in tutorial_text:
+      putstr(s, (self.width/2) - (text_width(s) / 2), self.offset + (count * 25))
+      count += 1
+
+class AboutScreen(Screen):
+  def __init__(self):
+    super().__init__()
+
+    self.back_button = Button("Back to Menu", self.width/2, self.offset+(25 * len(self.about_text))+60, self.back_button_click)
+    self.add_button(self.back_button)
+  
+  def back_button_click(self):
+    game.current_screen = StartScreen()
+
+  @property
+  def offset(self):
+    return 100
+
+  @property
+  def about_text(self):
+    return [
+      "This game was made by brothers Andrew and Ethan MacDonald in 2019 for Game Jam Challenge",
+      "Programming by Andrew and Ethan",
+      "Pixel art and font designed by Ethan",
+      "Coin logos from github.com/atomiclabs/cryptocurrency-icons",
+      "",
+      "",
+      "github.com/ajmd17",
+      "github.com/emd22",
+      "",
+      "We both hope you enjoy this game!"
+    ]
+
+  def render(self, screen):
+    super().render(screen)
+
+    about_text = self.about_text
+    putstr("About This Game", (self.width/2) - (text_width("About This Game")/2), self.offset)
+
+    count = 1
+    for s in about_text:
+      putstr(s, (self.width/2) - (text_width(s) / 2), self.offset + (count * 25))
+      count += 1
+
 class LevelUpScreen(Screen):
   def __init__(self):
     super().__init__()
 
     self.skip_timer = 0.0
+    self.next_level = game.current_level.difficulty + 1
+    self.current_btc_target = game.current_level.btc_balance_target
+
+    if self.has_won:
+      self.back_button = Button("Back to Menu", self.width/2, 350, self.back_button_click)
+      self.add_button(self.back_button)
+  
+  def back_button_click(self):
+    game.current_screen = StartScreen()
+
+  @property
+  def has_won(self):
+    return self.next_level > MAX_DIFFICULTY
   
   def update(self, dt):
     super().update(dt)
 
-    self.skip_timer += 0.01*dt
+    if not self.has_won:
+      self.skip_timer += 0.01*dt
 
-    if self.skip_timer >= 30:
-      game.setup_game()
-      game.current_level = game.current_level.next()
-      game.current_screen = None
+      if self.skip_timer >= 30:
+        game.setup_game(self.next_level)
+        game.current_screen = None
+
+  def render(self, screen):
+    super().render(screen)
+
+    if self.has_won:
+      putstr("You won!!!", (self.width/2) - (text_width("You won!!!")/2), 150)
+      putstr("Since this round, you have...", (self.width/2) - (text_width("Since this round, you have...")/2), 175)
+      putstr("Destroyed " + str(game.stats.num_shtcoins_destroyed) + " sh-tcoins", (self.width/2) - (text_width("Destroyed " + str(game.stats.num_shtcoins_destroyed) + " sh-tcoins")/2), 200)
+      putstr("Destroyed " + str(game.stats.num_sour_coins_destroyed) + " sour coins", (self.width/2) - (text_width("Destroyed " + str(game.stats.num_sour_coins_destroyed) + " sour coins")/2), 225)
+      putstr("Destroyed " + str(game.stats.num_btc_destroyed) + " bitcoins", (self.width/2) - (text_width("Destroyed " + str(game.stats.num_btc_destroyed) + " bitcoins")/2), 250)
+      putstr("Give yourself a pat on the back!", (self.width/2) - (text_width("Give yourself a pat on the back!")/2), 300)
+      
+    else:
+      putstr("Level Cleared!", (self.width/2) - (text_width("Level Cleared!")/2), 150)
+      putstr("Goal of " + format_btc_balance(self.current_btc_target) + " reached", (self.width/2) - (text_width("Goal of " + format_btc_balance(self.current_btc_target) + " reached")/2), 175)
+      putstr("You are now on Level " + str(self.next_level), (self.width/2) - (text_width("You are now on Level " + str(self.next_level))/2), 200)
 
 # sound stuff
 class dummysound:
@@ -677,6 +808,12 @@ def load_sound(file):
         print ('Warning, unable to load, %s' % file)
     return dummysound()
 
+class Stats():
+  def __init__(self):
+    self.num_shtcoins_destroyed = 0
+    self.num_btc_destroyed = 0
+    self.num_sour_coins_destroyed = 0
+
 class Game():
   def __init__(self):
     screen_info = pygame.display.Info()
@@ -686,7 +823,6 @@ class Game():
     self.width = w
     self.height = h
 
-    self.current_level = Level(1, (w, h), self.on_lose_life)
     self.ship = Ship((w / 2), h - 15)
 
     start_screen = StartScreen()
@@ -704,7 +840,11 @@ class Game():
 
     self.running = True
 
-  def setup_game(self):
+  def setup_game(self, level=1):
+    if level == 1:
+      self.stats = Stats()
+
+    self.current_level = Level(level, (self.width, self.height), self.on_lose_life)
     self.dead = False
     self.num_lives = 3
     self.btc_balance = 0.0
@@ -712,7 +852,7 @@ class Game():
     self.btc_laser_cost_timer = 0.0
     self.boost = 0.0
     self.ship.lasers = []
-  
+
   @property
   def speed(self):
     return 1.0 + max(0.0, min(self.boost, 1.55))
@@ -721,7 +861,7 @@ class Game():
   def playing(self):
     return (self.current_screen is None) and (not self.dead)
 
-  def on_lose_life(self): #todo explanation argument
+  def on_lose_life(self):
     self.sounds['hurt2'].play()
     self.num_lives = self.num_lives - 1
 
