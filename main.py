@@ -654,7 +654,7 @@ class dummysound:
 
 def load_sound(file):
     if not pygame.mixer: return dummysound()
-    file = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data', file)
+    file = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'assetz', file)
     try:
         sound = pygame.mixer.Sound(file)
         return sound
@@ -688,13 +688,10 @@ class Game():
     self.life_icon = Image('./lightning.png')
     self.event_box = EventBox()
 
-    self.sounds = {
-      'levelup': load_sound('assetz/levelup.wav'),
-      'hurt': load_sound('assetz/hurt.wav'),
-      'hurt2': load_sound('assetz/hurt2.wav'),
-      'coin': load_sound('assetz/coin.wav'),
-      'shoot': load_sound('assetz/shoot.wav')
-    }
+    self.sounds = {}
+
+    for k in ['levelup', 'hurt', 'hurt2', 'coin', 'shoot']:
+      self.sounds[k] = load_sound(k + '.wav')
 
     self.running = True
   
